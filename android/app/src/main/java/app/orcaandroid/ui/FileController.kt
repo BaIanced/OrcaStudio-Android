@@ -4,7 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import app.orcaandroid.R
 import app.orcaandroid.core.FilamentSlot
-import app.orcaandroid.ui.prepare.Mix
+import app.orcaandroid.core.Mix
 import app.orcaandroid.core.PresetType
 import app.orcaandroid.ui.FilamentChoice
 import app.orcaandroid.core.Scene
@@ -44,7 +44,7 @@ class FileController(
         // A zip (a model site's download, "open with") opens the model files inside it.
         val unpacked = withContext(Dispatchers.IO) { imported.map { ModelDownloads.modelFiles(it) } }
         // glTF / GLB / PLY / OFF are converted to a 3MF, with colors snapped to the filament slots.
-        val slotColors = store.value.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
+        val slotColors = store.value.device.filaments.map { app.orcaandroid.core.MeshConvert.parseColor(it.color) }
         var failedConvert = 0
         var tooLarge: Long? = null
         val all = withContext(Dispatchers.IO) {
@@ -87,43 +87,43 @@ class FileController(
         }
         val project = files.singleOrNull()?.takeIf { it.name.endsWith(".3mf", true) && isProject(it) }
         // A project onto a plate with objects: open it as a project (its plates, settings, filaments) or import its models.
-        if (project != null && (!append || store.value.scene.isEmpty || askOpenAsProject(project.name))) {
+        if (project != null && (!append || store.value.workspace.scene.isEmpty || askOpenAsProject(project.name))) {
             openProjectFile(project, uris.first())
             return@launch
         }
-        val s = if (store.value.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.activePlate).also { store.applyScene(it) }
+        val s = if (store.value.workspace.scene.isEmpty) engine.loadModels(files.map { it.path }, append = append, plate = store.value.workspace.activePlate).also { store.applyScene(it) }
         else {
             // Objects already in the project stay where they are: each new file gets a plate of its own (user, 2026-10-14).
-            var last = store.value.scene
+            var last = store.value.workspace.scene
             for (f in files) {
                 useEmptyPlate()
-                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.activePlate)
+                last = engine.loadModels(listOf(f.path), append = true, plate = store.value.workspace.activePlate)
                 store.applyScene(last)
             }
             last
         }
         uris.forEachIndexed { i, u -> if (unpacked[i].any { it in files }) rememberRecent(u, imported[i].name, false) }
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private fun Scene.plateEmpty(plate: Int) = objects.none { o -> o.instances.any { it.plate == plate } }
 
     /** The plate a new file goes on: the active plate if it is empty, else the first empty one, else a new one. */
     private suspend fun useEmptyPlate() {
-        val s = store.value.scene
-        if (s.plates.isEmpty() || s.plateEmpty(store.value.activePlate)) return
+        val s = store.value.workspace.scene
+        if (s.plates.isEmpty() || s.plateEmpty(store.value.workspace.activePlate)) return
         val free = s.plates.indices.firstOrNull { s.plateEmpty(it) }
-        if (free != null) { store.update { it.copy(activePlate = free) }; return }
+        if (free != null) { store.update { it.copy(workspace = it.workspace.copy(activePlate = free)) }; return }
         // At the plate limit the file stays on the active plate.
         val added = runCatching { engine.addPlate() }.getOrNull() ?: return
         store.applyScene(added)
-        store.update { it.copy(activePlate = added.plates.lastIndex) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = added.plates.lastIndex)) }
     }
 
     private fun addVariants(files: List<File>) = store.launch(store.str(R.string.loading_model)) {
-        val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.activePlate)
+        val s = engine.loadModels(files.map { it.path }, append = true, plate = store.value.workspace.activePlate)
         store.applyScene(s)
-        store.update { it.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList(), screen = Screen.PREPARE, scadHidden = true) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(s.objects.lastIndex), multiSelection = emptyList()), design = it.design.copy(scadHidden = true), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     /**
@@ -135,7 +135,7 @@ class FileController(
         // Filament profiles (3D Filament Profiles and the like) go to the preset import instead.
         if (withContext(Dispatchers.IO) { ModelDownloads.isPresetFile(file) }) {
             val (printers, setup) = engine.importPresets(listOf(file.path))
-            store.update { it.copy(printers = printers, setup = setup) }
+            store.update { it.copy(device = it.device.copy(printers = printers, setup = setup)) }
             store.toast(store.app.resources.getQuantityString(R.plurals.presets_imported, 1, 1))
             return@launch
         }
@@ -155,17 +155,17 @@ class FileController(
         // Use the project's presets where they exist here, with its setting changes on top.
         // A file the user opens or downloads never switches the printer (a MakerWorld project for another printer
         // or nozzle would slice for the wrong machine; user 2026-10-15). Only the session restore brings its printer back.
-        val projectPrinter = s.printers.firstOrNull { it.name == info.printer }?.name
-        val printer = if (uri == null) projectPrinter ?: s.printer else s.printer ?: projectPrinter
-        if (uri != null && info.printer.isNotBlank() && s.printer != null && info.printer != s.printer)
-            store.toast(store.str(R.string.project_printer_kept, info.printer, s.printer))
+        val projectPrinter = s.device.printers.firstOrNull { it.name == info.printer }?.name
+        val printer = if (uri == null) projectPrinter ?: s.device.printer else s.device.printer ?: projectPrinter
+        if (uri != null && info.printer.isNotBlank() && s.device.printer != null && info.printer != s.device.printer)
+            store.toast(store.str(R.string.project_printer_kept, info.printer, s.device.printer))
         var filaments = PresetController.withColors(info.filaments.mapIndexed { i, name ->
             FilamentSlot(name, info.filamentColors.getOrNull(i)?.ifBlank { null }, info.filamentOverrides.getOrNull(i).orEmpty())
         })
         // A project the user opens may bring its own filaments, which would undo their syncs and edits: they choose.
-        val mine = s.filaments
+        val mine = s.device.filaments
         if (uri != null && filaments.isNotEmpty() && mine.isNotEmpty() && filaments.map { it.preset to it.color } != mine.map { it.preset to it.color }) {
-            val mode = s.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
+            val mode = s.device.projectFilaments.takeIf { it != "ask" } ?: askFilaments(mine, filaments)
             filaments = when (mode) {
                 "mine" -> List(filaments.size) { mine.getOrNull(it) ?: mine.last() }
                 // Both: the project's slots stay where its objects use them; mine that it lacks come after.
@@ -175,19 +175,19 @@ class FileController(
         }
         if (printer != null) presets.selectPrinterNow(printer, info.print, filaments.ifEmpty { null })
         store.update { st ->
-            val slots = if (filaments.isEmpty()) st.filaments
+            val slots = if (filaments.isEmpty()) st.device.filaments
             else filaments.mapIndexed { i, f ->
                 // Keep the AMS tray, surface look and mix selectPrinterNow found for the slot.
-                val same = st.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
-                if (st.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
-                else f.copy(preset = st.filaments.first().preset)
+                val same = st.device.filaments.getOrNull(i)?.takeIf { it.preset == f.preset }
+                if (st.device.setup?.filaments?.any { it.name == f.preset } == true) f.copy(source = same?.source, look = same?.look, overrides = Mix.carry(f, same))
+                else f.copy(preset = st.device.filaments.first().preset)
             }
-            st.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.overrides else st.overrides + (PresetType.PRINT to info.printOverrides))
+            st.copy(device = st.device.copy(filaments = slots, overrides = if (info.printOverrides.isEmpty()) st.device.overrides else st.device.overrides + (PresetType.PRINT to info.printOverrides)))
         }
         presets.refreshPresetValues(listOf(PresetType.FILAMENT, PresetType.PRINT))
         store.applyScene(loaded, dirty = false)
         uri?.let { rememberRecent(it, file.name, true) }
-        store.update { it.copy(projectName = file.name.removeSuffix(".3mf"), projectDirty = false, selection = null, multiSelection = emptyList(), screen = Screen.PREPARE) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, multiSelection = emptyList(), projectName = file.name.removeSuffix(".3mf"), projectDirty = false), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     private var filamentAnswer: kotlinx.coroutines.CompletableDeferred<String>? = null
@@ -196,7 +196,7 @@ class FileController(
     private suspend fun askFilaments(mine: List<FilamentSlot>, project: List<FilamentSlot>): String {
         val answer = kotlinx.coroutines.CompletableDeferred<String>()
         filamentAnswer = answer
-        store.update { it.copy(filamentChoice = FilamentChoice(mine, project)) }
+        store.update { it.copy(chrome = it.chrome.copy(filamentChoice = FilamentChoice(mine, project))) }
         return answer.await()
     }
 
@@ -206,12 +206,12 @@ class FileController(
     private suspend fun askOpenAsProject(name: String): Boolean {
         val answer = kotlinx.coroutines.CompletableDeferred<Boolean>()
         openAnswer = answer
-        store.update { it.copy(projectOrImport = name) }
+        store.update { it.copy(chrome = it.chrome.copy(projectOrImport = name)) }
         return answer.await()
     }
 
     fun answerOpenAsProject(asProject: Boolean) {
-        store.update { it.copy(projectOrImport = null) }
+        store.update { it.copy(chrome = it.chrome.copy(projectOrImport = null)) }
         openAnswer?.complete(asProject)
         openAnswer = null
     }
@@ -220,9 +220,9 @@ class FileController(
     fun answerFilaments(mode: String, remember: Boolean) {
         if (remember) {
             store.settings.projectFilaments = mode
-            store.update { it.copy(projectFilaments = mode) }
+            store.update { it.copy(device = it.device.copy(projectFilaments = mode)) }
         }
-        store.update { it.copy(filamentChoice = null) }
+        store.update { it.copy(chrome = it.chrome.copy(filamentChoice = null)) }
         filamentAnswer?.complete(mode)
         filamentAnswer = null
     }
@@ -243,18 +243,18 @@ class FileController(
     /** Saves the scene, presets and setting changes as a project (called when the app goes to the background). */
     suspend fun saveSession() = sessionLock.withLock {
         val s = store.value
-        if (s.phase != Phase.READY) return
+        if (s.chrome.phase != Phase.READY) return
         // A calibration test cannot be resumed from a project; an empty plate needs no session.
-        if (s.scene.isEmpty || s.calibration != null) {
+        if (s.workspace.scene.isEmpty || s.workspace.calibration != null) {
             if (sessionLoadedOrAbsent) withContext(Dispatchers.IO) { session.clear() }
             return@withLock
         }
         presets.syncSelection()
         engine.saveProject(session.tmpProject.path)
         val info = JSONObject().apply {
-            put("projectName", s.projectName ?: "")
-            put("projectDirty", s.projectDirty)
-            put("activePlate", s.activePlate)
+            put("projectName", s.workspace.projectName ?: "")
+            put("projectDirty", s.workspace.projectDirty)
+            put("activePlate", s.workspace.activePlate)
         }.toString()
         val saved = withContext(Dispatchers.IO) { session.commit(info) }
         if (!saved) noteCrashReport("Session save failed: the new session could not replace the old one (the old one was kept).")
@@ -262,12 +262,12 @@ class FileController(
 
     /** Restores the last session if the engine has no scene (a fresh start of the process). */
     suspend fun restoreSession() {
-        if (!store.value.scene.isEmpty) return
+        if (!store.value.workspace.scene.isEmpty) return
         withContext(Dispatchers.IO) { session.recoverInterrupted() }
         if (!session.project.exists()) {
             sessionLoadedOrAbsent = true
             // A pair kept from an earlier failed restore is still offered.
-            if (session.hasBad()) store.update { it.copy(sessionBad = true) }
+            if (session.hasBad()) store.update { it.copy(chrome = it.chrome.copy(sessionBad = true)) }
             return
         }
         val info = runCatching { JSONObject(session.info.readText()) }.getOrNull()
@@ -279,15 +279,13 @@ class FileController(
             android.util.Log.w("Orca", "session not restored", e)
             withContext(Dispatchers.IO) { session.quarantine() }
             sessionLoadedOrAbsent = true
-            store.update { it.copy(sessionBad = true) }
+            store.update { it.copy(chrome = it.chrome.copy(sessionBad = true)) }
             return
         }
         sessionLoadedOrAbsent = true
         store.update {
             it.copy(
-                projectName = info?.optString("projectName")?.ifBlank { null },
-                projectDirty = info?.optBoolean("projectDirty") ?: true,
-                activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.scene.plates.size - 1).coerceAtLeast(0)),
+                workspace = it.workspace.copy(activePlate = (info?.optInt("activePlate") ?: 0).coerceIn(0, (it.workspace.scene.plates.size - 1).coerceAtLeast(0)), projectName = info?.optString("projectName")?.ifBlank { null }, projectDirty = info?.optBoolean("projectDirty") ?: true),
             )
         }
     }
@@ -295,11 +293,11 @@ class FileController(
     /** "Try again" on the notice: the kept session becomes the session again and is restored. */
     fun retryBadSession() = store.launch(store.str(R.string.loading_model)) {
         // Reopening replaces the scene, so it only runs on an empty plate; the notice stays until then.
-        if (!store.value.scene.isEmpty) {
+        if (!store.value.workspace.scene.isEmpty) {
             store.toast(store.str(R.string.session_retry_empty_plate))
             return@launch
         }
-        store.update { it.copy(sessionBad = false) }
+        store.update { it.copy(chrome = it.chrome.copy(sessionBad = false)) }
         sessionLock.withLock {
             if (!withContext(Dispatchers.IO) { session.restoreBad() }) return@launch
             sessionLoadedOrAbsent = false
@@ -309,7 +307,7 @@ class FileController(
 
     /** "Discard" on the notice: the kept session is deleted. */
     fun discardBadSession() {
-        store.update { it.copy(sessionBad = false) }
+        store.update { it.copy(chrome = it.chrome.copy(sessionBad = false)) }
         store.launch { sessionLock.withLock { withContext(Dispatchers.IO) { session.discardBad() } } }
     }
 
@@ -320,11 +318,11 @@ class FileController(
 
     fun newProject() = store.launch {
         scene.deleteAll()?.join()
-        if (store.value.calibration != null) store.applyScene(engine.calibStop())
+        if (store.value.workspace.calibration != null) store.applyScene(engine.calibStop())
         // Like the desktop, a new project starts with one plate.
-        val extra = (1 until store.value.scene.plates.size).toList()
+        val extra = (1 until store.value.workspace.scene.plates.size).toList()
         if (extra.isNotEmpty()) store.applyScene(engine.deletePlates(extra))
-        store.update { it.copy(projectName = null, projectDirty = false, calibration = null, results = emptyMap(), external = null, activePlate = 0, sliceError = null, fitIssue = null) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = 0, projectName = null, projectDirty = false, calibration = null), slicing = it.slicing.copy(results = emptyMap(), external = null, sliceError = null, fitIssue = null)) }
     }
 
     fun saveProject(target: Uri) = store.launch(store.str(R.string.saving_project)) {
@@ -334,7 +332,7 @@ class FileController(
         if (!copyTo(tmp, target)) return@launch
         val name = resources.displayName(target).removeSuffix(".3mf")
         rememberRecent(target, "$name.3mf", true)
-        store.update { it.copy(projectName = name, projectDirty = false) }
+        store.update { it.copy(workspace = it.workspace.copy(projectName = name, projectDirty = false)) }
         store.toast(store.str(R.string.project_saved))
     }
 
@@ -346,10 +344,10 @@ class FileController(
     }
 
     /** File name for the G-code of [plate]: project or first object name, with the plate if there are several. */
-    fun gcodeFileName(plate: Int = store.value.previewPlate): String {
+    fun gcodeFileName(plate: Int = store.value.slicing.previewPlate): String {
         val s = store.value
-        val base = s.projectName ?: s.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
-        return if (s.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
+        val base = s.workspace.projectName ?: s.workspace.scene.objectsOn(plate).firstOrNull()?.name?.substringBeforeLast('.') ?: "plate"
+        return if (s.workspace.scene.plates.size > 1) "${base}_plate${plate + 1}.gcode" else "$base.gcode"
     }
 
     fun saveGcode(target: Uri) = store.launch(store.str(R.string.saving)) {
@@ -366,11 +364,11 @@ class FileController(
     suspend fun exportedGcode(host: String, outputName: String = gcodeFileName()): File? {
         val s = store.value
         pluginMessages = emptyList()
-        val r = s.shownResult ?: return null
+        val r = s.slicing.shownResult ?: return null
         if (r.external) return File(r.gcodeFile)
         val copy = File(outDir, "export.gcode")
         withContext(Dispatchers.IO) { File(r.gcodeFile).copyTo(copy, overwrite = true) }
-        pluginMessages = Plugins.postProcess(s.previewPlate, copy, host, outputName)
+        pluginMessages = Plugins.postProcess(s.slicing.previewPlate, copy, host, outputName)
         pluginMessages.forEach { store.toast(it) }
         return copy
     }
@@ -378,10 +376,10 @@ class FileController(
     /** Opens the shown slice result in 3D Filament Profiles' print log (pick spools, subtract). */
     fun logPrintToFilamentProfiles() = store.launch {
         val s = store.value
-        val r = s.shownResult ?: return@launch
-        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.previewPlate + 1) }
+        val r = s.slicing.shownResult ?: return@launch
+        val url = withContext(Dispatchers.IO) { FilamentProfiles.printLogUrl(File(r.gcodeFile), gcodeFileName(), s.slicing.previewPlate + 1) }
             ?: return@launch store.toast(store.str(R.string.fp_no_usage))
-        store.update { it.copy(modelsUrl = url, screen = Screen.MODELS, tool = Tool.None) }
+        store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
     }
 
     /** Messages of the slicing-pipeline plugins from the last [exportedGcode]. */
@@ -399,9 +397,9 @@ class FileController(
 
     /** Writes the shown slice result as .gcode.3mf into the cache; null without a result. */
     suspend fun exportGcode3mf(host: String = "File"): File? {
-        val plate = store.value.previewPlate
+        val plate = store.value.slicing.previewPlate
         val gcode = exportedGcode(host, gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") ?: return null
-        val sliced = store.value.shownResult?.gcodeFile ?: gcode.path
+        val sliced = store.value.slicing.shownResult?.gcodeFile ?: gcode.path
         return File(outDir, "export.gcode.3mf").also { engine.exportGcode3mf(plate, gcode.path, it.path, sliced) }
     }
 
@@ -418,14 +416,14 @@ class FileController(
 
     fun removeRecent(recent: RecentFile) {
         settings.recents = settings.recents.filter { it.uri != recent.uri }
-        store.update { it.copy(recents = settings.recents) }
+        store.update { it.copy(chrome = it.chrome.copy(recents = settings.recents)) }
     }
 
     private fun rememberRecent(uri: Uri, name: String, project: Boolean) {
         // Keep access to documents across restarts where the provider allows it.
         runCatching { store.app.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         settings.addRecent(RecentFile(uri.toString(), name, project, System.currentTimeMillis()))
-        store.update { it.copy(recents = settings.recents) }
+        store.update { it.copy(chrome = it.chrome.copy(recents = settings.recents)) }
     }
 
     /** Copies [file] to [target]; false (with a "Not saved" toast) when the bytes written differ from the source length. */

@@ -28,7 +28,7 @@ import kotlin.math.roundToInt
  *  0 = like the shell layers, -1 = all the way through). Sides: a wall width (`mmu_segmented_region_max_width`, 0 = all the way in). */
 @Composable
 internal fun PaintDepth(state: UiState, vm: AppViewModel) {
-    if (state.selectedObject == null) return
+    if (state.workspace.selectedObject == null) return
     Text(stringResource(R.string.paint_depth), style = MaterialTheme.typography.labelMedium)
     DepthRow(state, vm, R.string.paint_depth_top, "mmu_top_paint_layers", false)
     DepthRow(state, vm, R.string.paint_depth_bottom, "mmu_bottom_paint_layers", false)
@@ -37,7 +37,7 @@ internal fun PaintDepth(state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun DepthRow(state: UiState, vm: AppViewModel, label: Int, key: String, sides: Boolean) {
-    val obj = state.selectedObject ?: return
+    val obj = state.workspace.selectedObject ?: return
     val stored = obj.settings[key]?.toFloatOrNull() ?: 0f
     fun set(v: Float) = vm.scene.setObjectSetting(obj.index, -1, key,
         if (v == 0f) null else if (sides) String.format(Locale.ROOT, "%.1f", v) else v.roundToInt().toString())

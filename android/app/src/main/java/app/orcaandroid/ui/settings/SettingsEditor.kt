@@ -114,17 +114,17 @@ private class EditSource(
 
 @Composable
 fun SettingsEditor(state: UiState, vm: AppViewModel) {
-    val target = state.editor ?: return
+    val target = state.chrome.editor ?: return
     androidx.activity.compose.BackHandler(onBack = vm.presets::closeEditor)
     when (target) {
         is EditorTarget.Preset -> PresetEditor(state, vm, target.type, target.pickCompare, target.focus, target.pinMode)
         is EditorTarget.Object -> {
-            val o = state.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
+            val o = state.workspace.scene.objects.getOrNull(target.obj) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val settings = (if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.settings.orEmpty() else o.settings).overrides
             val title = if (target.volume >= 0) o.volumes.getOrNull(target.volume)?.name.orEmpty() else o.name
             val source = EditSource(
                 PresetType.PRINT,
-                value = { k -> settings[k] ?: state.value(PresetType.PRINT, k) },
+                value = { k -> settings[k] ?: state.device.value(PresetType.PRINT, k) },
                 isModified = { k -> settings.containsKey(k) },
                 set = { k, v -> vm.scene.setObjectSetting(target.obj, target.volume, k, v) },
                 reset = { k -> vm.scene.setObjectSetting(target.obj, target.volume, k, null) },
@@ -134,11 +134,11 @@ fun SettingsEditor(state: UiState, vm: AppViewModel) {
             EditorFrame(vm, state, stringResource(R.string.object_settings_title), title, source, objectMode = true, objectSettings = merged)
         }
         is EditorTarget.Range -> {
-            val o = state.scene.objects.getOrNull(target.obj)
+            val o = state.workspace.scene.objects.getOrNull(target.obj)
             val r = o?.layerRanges?.getOrNull(target.range) ?: run { LaunchedEffect(Unit) { vm.presets.closeEditor() }; return }
             val source = EditSource(
                 PresetType.PRINT,
-                value = { k -> r.settings[k] ?: o.settings[k] ?: state.value(PresetType.PRINT, k) },
+                value = { k -> r.settings[k] ?: o.settings[k] ?: state.device.value(PresetType.PRINT, k) },
                 isModified = { k -> k in r.settings.overrides },
                 set = { k, v -> vm.scene.setRangeSetting(target.obj, target.range, k, v) },
                 reset = { k -> vm.scene.setRangeSetting(target.obj, target.range, k, null) },
@@ -162,13 +162,13 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { it?.let { u -> vm.presets.exportPreset(type, u) } }
     val source = EditSource(
         type,
-        value = { k -> state.value(type, k) },
-        isModified = { k -> state.isModified(type, k) },
+        value = { k -> state.device.value(type, k) },
+        isModified = { k -> state.device.isModified(type, k) },
         set = { k, v -> vm.presets.setOption(type, k, v) },
         reset = { k -> vm.presets.resetOption(type, k) },
-        modifiedCount = state.overridesOf(type).size,
+        modifiedCount = state.device.overridesOf(type).size,
     )
-    val name = state.presetName(type).orEmpty()
+    val name = state.device.presetName(type).orEmpty()
     EditorFrame(vm, state, stringResource(R.string.settings), name, source, objectMode = false, focus = focus, pinMode = pinMode,
         tabs = {
             PrimaryTabRow(selectedTabIndex = type.ordinal) {
@@ -176,10 +176,10 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
                     Tab(t == type, { vm.presets.openEditor(EditorTarget.Preset(t)) }, Modifier.inactiveTabLine(t == type), text ={ Text(stringResource(TYPE_TITLES.getValue(t))) })
                 }
             }
-            if (type == PresetType.FILAMENT && state.filaments.size > 1) {
+            if (type == PresetType.FILAMENT && state.device.filaments.size > 1) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    state.filaments.forEachIndexed { i, f ->
-                        FilterChip(i == state.activeFilament, { vm.presets.setActiveFilament(i) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
+                    state.device.filaments.forEachIndexed { i, f ->
+                        FilterChip(i == state.device.activeFilament, { vm.presets.setActiveFilament(i) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
                     }
                 }
             }
@@ -205,9 +205,9 @@ private fun PresetEditor(state: UiState, vm: AppViewModel, type: PresetType, pic
         val userGroup = vm.translator.tr("User presets")
         val vendorGroup = stringResource(R.string.vendor_presets)
         val items = when (type) {
-            PresetType.PRINT -> presetItems(state.setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) }
-            PresetType.FILAMENT -> presetItems(state.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
-            PresetType.PRINTER -> presetItems(state.printers, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) }
+            PresetType.PRINT -> presetItems(state.device.setup?.prints.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor.ifEmpty { "System" }) }
+            PresetType.FILAMENT -> presetItems(state.device.setup?.filaments.orEmpty(), userGroup, vendorGroup, { it.name }, { it.system }, { it.color }) { listOf(it.brandName, it.type.ifEmpty { "?" }) }
+            PresetType.PRINTER -> presetItems(state.device.printers, userGroup, vendorGroup, { it.name }, { it.system }) { listOf(it.vendor) }
         }.filter { it.id != name }
         PickerDialog(stringResource(R.string.compare_with), null, items, onDismiss = { comparePick = false }, openGroups = setOf(userGroup)) {
             comparePick = false
@@ -235,8 +235,8 @@ private fun EditorFrame(
     // Process options of the preset itself can be pinned to the main view (not per-object ones).
     val pinnable = !objectMode && type == PresetType.PRINT
     // An object's editor greys out by the object's own settings (support enabled there, not in the process).
-    val optionStates by produceState(state.optionStates, objectSettings, state.optionStates) {
-        value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.optionStates
+    val optionStates by produceState(state.device.optionStates, objectSettings, state.device.optionStates) {
+        value = objectSettings?.let { s -> runCatching { vm.presets.objectOptionStates(s) }.getOrNull() } ?: state.device.optionStates
     }
     var defs by remember(type) { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
     LaunchedEffect(type) {
@@ -254,7 +254,7 @@ private fun EditorFrame(
     var pendingDanger by remember { mutableStateOf<Triple<String, String, DangerRule>?>(null) }
     var resetTick by remember { mutableIntStateOf(0) }
     val guardedSet: (String, String) -> Unit = { key, v ->
-        val rule = dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed }
+        val rule = dangerRule(type, key, v)?.takeIf { it.name !in state.device.dangerAllowed }
         if (rule == null) source.set(key, v) else pendingDanger = Triple(key, v, rule)
     }
     pendingDanger?.let { (key, v, rule) ->
@@ -265,9 +265,9 @@ private fun EditorFrame(
     }
     // Without Expert settings: Simple/Advanced options only, and a vendor printer's fixed hardware stays hidden.
     // Changed options and the one a link points at always show, so they can be traced and reset.
-    val expert = state.expertSettings
+    val expert = state.device.expertSettings
     val vendorPrinter = type == PresetType.PRINTER && !objectMode &&
-        state.printers.firstOrNull { it.name == state.printer }?.let { it.system || it.base.isNotEmpty() } == true
+        state.device.printers.firstOrNull { it.name == state.device.printer }?.let { it.system || it.base.isNotEmpty() } == true
     fun allowed(def: OptionDef) = expert || shownWithoutExpert(type, def.key, def.mode, vendorPrinter) || source.isModified(def.key) || def.key == focus
     val shownMode = if (expert) mode else mode.coerceAtMost(1)
 
@@ -385,7 +385,7 @@ private fun EditorFrame(
                             androidx.compose.runtime.key(resetTick) {
                                 OptionRow(def, rows[def.key], source.value(def.key).orEmpty(), source.isModified(def.key), def.key !in optionStates.disabled,
                                     wide, tr, { guardedSet(def.key, it) }, { source.reset(def.key) },
-                                    pinned = if (pinnable) def.key in state.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
+                                    pinned = if (pinnable) def.key in state.device.pinnedSettings else null, pinToggle = pinMode) { vm.presets.togglePinned(def.key) }
                             }
                         }
                     }
@@ -719,26 +719,26 @@ private fun escape(s: String): String =
 @Composable
 internal fun PinnedSettings(state: UiState, vm: AppViewModel) {
     val type = PresetType.PRINT
-    val pins = state.pinnedSettings
+    val pins = state.device.pinnedSettings
     if (pins.isNotEmpty()) {
         var defs by remember { mutableStateOf<Map<String, OptionDef>>(emptyMap()) }
-        LaunchedEffect(state.setup != null) { runCatching { vm.presets.optionDefs(type) }.onSuccess { l -> defs = l.associateBy { it.key } } }
+        LaunchedEffect(state.device.setup != null) { runCatching { vm.presets.optionDefs(type) }.onSuccess { l -> defs = l.associateBy { it.key } } }
         val pages = remember(defs) { if (defs.isEmpty()) emptyList() else buildPages(vm.presets.settingsLayout(type), defs) }
         val rows = remember(pages) { pages.rowLabels() }
         val groupOf = remember(pages) { pages.flatMap { p -> p.groups.flatMap { g -> g.options.map { it to g.title } } }.toMap() }
         var resetTick by remember { mutableIntStateOf(0) }
-        val hidden = state.optionStates.hidden
+        val hidden = state.device.optionStates.hidden
         pins.forEach { key ->
             val def = defs[key] ?: return@forEach
-            val value = state.value(type, key)
+            val value = state.device.value(type, key)
             if (value == null || key in hidden) return@forEach
             androidx.compose.runtime.key(key, resetTick) {
                 // Out of its group the short label is too bare ("Default" of Line width): use the full one.
                 val own = def.fullLabel.ifEmpty { def.label }
                 val label = if (rows[key] == null && own.equals("Default", true)) groupOf[key]?.let { "$it · $own" } ?: own else own
-                OptionRow(def.copy(label = label), rows[key], value, state.isModified(type, key), key !in state.optionStates.disabled, false, vm.translator,
+                OptionRow(def.copy(label = label), rows[key], value, state.device.isModified(type, key), key !in state.device.optionStates.disabled, false, vm.translator,
                     { v ->
-                        if (dangerRule(type, key, v)?.takeIf { it.name !in state.dangerAllowed } == null) vm.presets.setOption(type, key, v)
+                        if (dangerRule(type, key, v)?.takeIf { it.name !in state.device.dangerAllowed } == null) vm.presets.setOption(type, key, v)
                         else { resetTick++; vm.presets.openEditor(EditorTarget.Preset(type, focus = key)) }
                     },
                     { vm.presets.resetOption(type, key) }, pinned = true) { vm.presets.togglePinned(key) }

@@ -111,6 +111,7 @@ import kotlin.math.roundToInt
 import app.orcaandroid.R
 import app.orcaandroid.core.AlignKind
 import app.orcaandroid.core.PlateSwitcher
+import app.orcaandroid.core.ViewDefaults
 import app.orcaandroid.ui.Screen
 import androidx.compose.material.icons.filled.AlignHorizontalCenter
 import androidx.compose.material.icons.filled.AlignHorizontalLeft
@@ -147,14 +148,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     if (state.inPaintShop) return
     // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
     if (state.buildObject != null) return
-    val lab = state.lab
     val sliceOnGrip = sliceOnGrip(state, wide)
-    // Tools in a column on the left: wide layouts always, portrait if chosen in the Layout lab.
-    val column = wide || lab.toolsLeft
+    // Tools in a column on the left: wide layouts always, portrait too by default.
+    val column = wide || state.chrome.toolsLeft
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
-    val onHandle = lab.platesOnHandle && !wide
-    val filmstrip = lab.plates == PlateSwitcher.FILMSTRIP && state.tool == Tool.None && !onHandle && lab.showPlates
-    CompositionLocalProvider(LocalOverlayAlpha provides lab.overlayAlpha) {
+    val onHandle = state.chrome.platesOnHandle && !wide
+    val filmstrip = state.chrome.plates == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && state.chrome.showPlates
+    CompositionLocalProvider(LocalOverlayAlpha provides state.chrome.overlayAlpha) {
     var containerSize by remember { mutableStateOf(IntSize.Zero) }
     var rowSize by remember { mutableStateOf(IntSize.Zero) }
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
@@ -167,7 +167,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TopBar(state, vm, view, viewButtons = !column, onHandle = onHandle)
-            state.calibration?.let { cal ->
+            state.workspace.calibration?.let { cal ->
                 Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(stringResource(R.string.calibration_active, CALIBRATION_LABELS[cal.type]?.let { stringResource(it) } ?: cal.name), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
@@ -176,11 +176,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 }
             }
             if (state.showSelectionBanner) SelectionBanner(state, vm)
-            if (!state.coachDismissed && state.calibration == null && state.scad == null) CoachStrip(state, vm)
+            if (!state.chrome.coachDismissed && state.workspace.calibration == null && state.design.scad == null) CoachStrip(state, vm)
         }
         if (column) {
             // Below the top bar (and the banners): the column scrolls instead of covering the plate selector.
-            val top = maxOf(bars + 12.dp, 60.dp + (if (state.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
+            val top = maxOf(bars + 12.dp, 60.dp + (if (state.workspace.calibration != null) 50.dp else 0.dp) + (if (state.showSelectionBanner) 50.dp else 0.dp))
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -197,8 +197,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             Row(
                 Modifier
                     .offset {
-                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (state.chrome.toolsRow.first >= 0f) with(density) { state.chrome.toolsRow.first.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (state.chrome.toolsRow.second >= 0f) with(density) { state.chrome.toolsRow.second.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
                         IntOffset(curX.coerceIn(0f, maxX).roundToInt(), curY.coerceIn(0f, maxY).roundToInt())
@@ -211,25 +211,25 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             ) {
                 ToolButtons(
                     state, vm,
-                    collapsed = lab.toolsCollapsed,
+                    collapsed = state.chrome.toolsCollapsed,
                     onAddDrag = { delta ->
                         dragOffsetX += delta.x
                         dragOffsetY += delta.y
                     },
                     onAddDragEnd = {
-                        val curX = (if (lab.toolsRowX >= 0f) with(density) { lab.toolsRowX.dp.toPx() } else 0f) + dragOffsetX
-                        val curY = (if (lab.toolsRowY >= 0f) with(density) { lab.toolsRowY.dp.toPx() } else defaultY) + dragOffsetY
+                        val curX = (if (state.chrome.toolsRow.first >= 0f) with(density) { state.chrome.toolsRow.first.dp.toPx() } else 0f) + dragOffsetX
+                        val curY = (if (state.chrome.toolsRow.second >= 0f) with(density) { state.chrome.toolsRow.second.dp.toPx() } else defaultY) + dragOffsetY
                         val maxX = maxOf(0f, (containerSize.width - rowSize.width).toFloat())
                         val maxY = maxOf(0f, (containerSize.height - rowSize.height).toFloat())
                         val finalX = curX.coerceIn(0f, maxX)
                         val finalY = curY.coerceIn(0f, maxY)
                         dragOffsetX = 0f
                         dragOffsetY = 0f
-                        vm.setLab(lab.copy(toolsRowX = with(density) { finalX.toDp().value }, toolsRowY = with(density) { finalY.toDp().value }))
+                        vm.setToolsRow(with(density) { finalX.toDp().value }, with(density) { finalY.toDp().value })
                     },
                     onAddLongPress = {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        vm.setLab(lab.copy(toolsCollapsed = !lab.toolsCollapsed))
+                        vm.setToolsCollapsed(!state.chrome.toolsCollapsed)
                     }
                 )
             }
@@ -239,22 +239,22 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
         if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
-                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
-                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
+                PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
+                if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             } else Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
-                if (!sliceOnGrip && !lab.sliceFloating) SliceButton(state, vm, Modifier)
+                PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.fillMaxWidth()) }
+                if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
             }
-        } else if (filmstrip) PlateScale(lab.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
+        } else if (filmstrip) PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.align(Alignment.BottomStart).padding(bottom = 120.dp)) }
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
-        val rightPanel = wide && state.tool == Tool.LayerHeight
+        val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
         Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
-        if (lab.sliceFloating) FloatingSlice(state, vm, containerSize)
+        if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
         else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.
         val problems = state.setupProblems()
@@ -275,8 +275,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 @Composable
 private fun CoachStrip(state: UiState, vm: AppViewModel) {
     val step = when {
-        state.scene.isEmpty -> 1
-        state.results.isEmpty() -> 2
+        state.workspace.scene.isEmpty -> 1
+        state.slicing.results.isEmpty() -> 2
         else -> 3
     }
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -292,7 +292,7 @@ private fun CoachStrip(state: UiState, vm: AppViewModel) {
     }
 }
 
-private val UiState.showSelectionBanner get() = selectMode || multiSelection.isNotEmpty()
+private val UiState.showSelectionBanner get() = workspace.selectMode || workspace.multiSelection.isNotEmpty()
 
 /** While several objects are selected or select mode is on: the count, select all, and leaving select mode. */
 @Composable
@@ -300,12 +300,12 @@ private fun SelectionBanner(state: UiState, vm: AppViewModel) {
     // Full width with the text taking the rest, so the buttons stay put when the count changes.
     Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
         Row(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            val count = state.selectedItems.size
+            val count = state.workspace.selectedItems.size
             Text(if (count == 0) stringResource(R.string.select_mode_hint) else stringResource(R.string.n_selected, count),
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, maxLines = 1,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             androidx.compose.material3.TextButton(onClick = vm.scene::selectAll) { Text(stringResource(R.string.select_all)) }
-            if (state.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
+            if (state.workspace.selectMode) androidx.compose.material3.TextButton(onClick = { vm.scene.setSelectMode(false) }) { Text(stringResource(R.string.done)) }
         }
     }
 }
@@ -318,53 +318,24 @@ private fun SelectionBanner(state: UiState, vm: AppViewModel) {
 private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
     var dialog by remember { mutableStateOf<String?>(null) }
     val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
-    val at = state.contextMenu
+    val at = state.workspace.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
-    // Lab "pie menu": wedges for the common actions; the last wedge ("More") opens the list.
-    var more by remember(at) { mutableStateOf(false) }
-    if (at != null && state.lab.pieMenu && !more) {
-        val close = vm.scene::closeContextMenu
-        val sel = state.selection
-        val moreItem = PieItem(Icons.Default.MoreHoriz, stringResource(R.string.more)) { more = true }
-        val items = if (state.multiSelection.size >= 2) listOf(
-            PieItem(Icons.Default.CallMerge, stringResource(R.string.assemble)) { vm.scene.assemble() },
-            PieItem(Icons.Default.CenterFocusStrong, stringResource(R.string.center_on_plate)) { vm.scene.centerSelected() },
-            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
-            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
-            moreItem,
-        ) else if (sel != null) listOf(
-            PieItem(Icons.Default.Rotate90DegreesCcw, stringResource(R.string.rotate), state.multiSelection.isEmpty()) { vm.scene.toggleRotate() },
-            PieItem(Icons.Default.OpenInFull, stringResource(R.string.resize), state.multiSelection.isEmpty()) { vm.scene.toggleResize() },
-            PieItem(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face)) { vm.scene.setTool(Tool.LayOnFace) },
-            PieItem(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) },
-            moreItem,
-            PieItem(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() },
-            PieItem(Icons.Default.ContentCut, stringResource(R.string.cut)) { vm.scene.startCut() },
-        ) else listOf(
-            PieItem(Icons.Default.FileOpen, stringResource(R.string.import_model)) { importModels.launch(arrayOf("*/*")) },
-            PieItem(Icons.Default.Interests, stringResource(R.string.add_shape)) { dialog = "primitive" },
-            PieItem(Icons.Default.TextFields, stringResource(R.string.add_text)) { dialog = "text" },
-            PieItem(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), !state.scene.isEmpty) { vm.scene.arrange(false) },
-            PieItem(AutoOrientIcon, stringResource(R.string.auto_orient), !state.scene.isEmpty) { vm.scene.autoOrient() },
-            moreItem,
-        )
-        PieMenu(at, inset, items, vm.pieTouch, close)
-    } else if (at != null) {
+    if (at != null) {
         val close = vm.scene::closeContextMenu
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {
-                val sel = state.selection
-                if (state.selectedItems.isNotEmpty()) {
+                val sel = state.workspace.selection
+                if (state.workspace.selectedItems.isNotEmpty()) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                         onClick = { close(); vm.scene.duplicate(1) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, leadingIcon = { Icon(Icons.Default.Delete, null) },
                         onClick = { close(); vm.scene.deleteSelected() })
                 }
-                if (state.selectedItems.isNotEmpty())
+                if (state.workspace.selectedItems.isNotEmpty())
                     DropdownMenuItem(text = { Text(stringResource(R.string.center_on_plate)) }, leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) },
                         onClick = { close(); vm.scene.centerSelected() })
-                if (state.multiSelection.size >= 2) {
+                if (state.workspace.multiSelection.size >= 2) {
                     // Left to right, then front to back (top view: back is up).
                     Row(Modifier.padding(horizontal = 8.dp)) {
                         listOf(
@@ -389,20 +360,20 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
                         onClick = { close(); vm.scene.setTool(Tool.LayOnFace) })
-                    if (state.multiSelection.isEmpty())
-                        DropdownMenuItem(text = { Text(stringResource(if (state.resizing) R.string.resize_done else R.string.resize)) },
+                    if (state.workspace.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.workspace.resizing) R.string.resize_done else R.string.resize)) },
                             leadingIcon = { Icon(Icons.Default.OpenInFull, null) }, onClick = { close(); vm.scene.toggleResize() })
-                    if (state.multiSelection.isEmpty())
-                        DropdownMenuItem(text = { Text(stringResource(if (state.rotating) R.string.rotate_done else R.string.rotate)) },
+                    if (state.workspace.multiSelection.isEmpty())
+                        DropdownMenuItem(text = { Text(stringResource(if (state.workspace.rotating) R.string.rotate_done else R.string.rotate)) },
                             leadingIcon = { Icon(Icons.Default.Rotate90DegreesCcw, null) }, onClick = { close(); vm.scene.toggleRotate() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_modifier)) },
                         onClick = { close(); vm.scene.addVolume(VolumeType.MODIFIER, "box") })
-                    if ((state.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
+                    if ((state.workspace.scene.objects.getOrNull(sel.obj)?.volumes?.count { it.type == VolumeType.PART } ?: 0) >= 2)
                         DropdownMenuItem(text = { Text(stringResource(R.string.mesh_boolean)) },
                             onClick = { close(); dialog = "boolean" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.object_settings_title)) },
                         onClick = { close(); vm.presets.openEditor(EditorTarget.Object(sel.obj)) })
-                } else if (state.multiSelection.isEmpty()) {
+                } else if (state.workspace.multiSelection.isEmpty()) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.import_model)) }, leadingIcon = { Icon(Icons.Default.FileOpen, null) },
                         onClick = { close(); importModels.launch(arrayOf("*/*")) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_shape)) }, leadingIcon = { Icon(Icons.Default.Interests, null) },
@@ -411,18 +382,18 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DesignEntries(vm, state.builderSplit, close)
-                    if (!state.scene.isEmpty)
+                    DesignEntries(vm, close)
+                    if (!state.workspace.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
                 }
             }
         }
     }
-    AddDialogs(state, vm, dialog ?: state.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
+    AddDialogs(state, vm, dialog ?: state.workspace.addDialog) { dialog = null; vm.scene.openAddDialog(null) }
 }
 
-/** Plate switcher (as chosen in the Layout lab), profile-update chip, undo/redo/view (when not in the tool column) and File. */
+/** Plate switcher, profile-update chip, undo/redo/view (when not in the tool column) and File. */
 @Composable
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
@@ -432,10 +403,10 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
         if (onHandle) { if (viewButtons) views() }
-        else if (state.lab.showPlates) PlateScale(state.lab.plateScale) {
-            when (state.lab.plates) {
+        else if (state.chrome.showPlates) PlateScale(state.chrome.plateScale) {
+            when (state.chrome.plates) {
                 PlateSwitcher.TABS -> Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateTabs(state, vm, view, Modifier.padding(start = 4.dp)) }
-                PlateSwitcher.FILMSTRIP -> if (state.lab.plateLabel) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
+                PlateSwitcher.FILMSTRIP -> if (ViewDefaults.PLATE_LABEL) Surface(shape = RoundedCornerShape(20.dp), color = bar) { PlateLabel(state, vm) }
                 PlateSwitcher.CHIPS -> PlateChips(state, vm, view)
             }
         }
@@ -458,15 +429,15 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
         val plateName = stringResource(R.string.plate_n, plate.index + 1)
         Box {
             FilterChip(
-                selected = plate.index == state.activePlate,
+                selected = plate.index == state.workspace.activePlate,
                 onClick = {
-                    if (plate.index == state.activePlate) plateMenu = plate.index
+                    if (plate.index == state.workspace.activePlate) plateMenu = plate.index
                     else { vm.scene.selectPlate(plate.index); view?.showPlate(plate.index) }
                 },
                 // Just the number ("Plate" took too much room, user 2026-10-14); "Plate n" for TalkBack.
                 label = { Text("${plate.index + 1}") },
                 modifier = Modifier.semantics { contentDescription = plateName },
-                trailingIcon = if (plate.index == state.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
+                trailingIcon = if (plate.index == state.workspace.activePlate) { { Icon(Icons.Default.ExpandMore, null, Modifier.size(16.dp)) } } else null,
                 colors = FilterChipDefaults.filterChipColors(containerColor = bar),
             )
             if (plateMenu == plate.index) PlateMenu(state, vm, plate.index) { plateMenu = null }
@@ -482,15 +453,15 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
         else Tip(label) { IconButton(onClick = onClick, enabled = enabled) { Icon(icon, label) } }
     }
-    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.scene.canUndo, vm.scene::undo)
-    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.scene.canRedo, vm.scene::redo)
+    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
+    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
     Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
             listOf(R.string.view_iso to 0, R.string.view_top to 1, R.string.view_front to 2, R.string.view_left to 3, R.string.view_right to 4).forEach { (label, id) ->
                 DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { viewMenu = false; view?.camera?.preset(id) })
             }
-            DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.activePlate) },
+            DropdownMenuItem(text = { Text(stringResource(R.string.view_fit)) }, onClick = { viewMenu = false; view?.framePlate(state.workspace.activePlate) },
                 leadingIcon = { Icon(Icons.Default.CenterFocusStrong, null) })
             // The desktop's canvas toolbar button: toggles the cut and opens its panel.
             DropdownMenuItem(text = { Text(stringResource(R.string.section_view)) },
@@ -499,39 +470,39 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
                 trailingIcon = { if (view?.section?.active == true) Icon(Icons.Default.Check, null) })
             // Physically based shading with a studio environment (in the spirit of Google's Filament renderer); the plain look stays the default.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_realistic)) },
-                onClick = { viewMenu = false; vm.setRealistic(!state.realistic) },
+                onClick = { viewMenu = false; vm.setRealistic(!state.workspace.realistic) },
                 leadingIcon = { Icon(Icons.Default.AutoAwesome, null) },
-                trailingIcon = { if (state.realistic) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.realistic) Icon(Icons.Default.Check, null) })
             // Printed layer lines on the models, from the print preset's layer heights.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_layer_lines)) },
-                onClick = { viewMenu = false; vm.setLayerLines(!state.layerLines) },
+                onClick = { viewMenu = false; vm.setLayerLines(!state.workspace.layerLines) },
                 leadingIcon = { Icon(Icons.Default.Reorder, null) },
-                trailingIcon = { if (state.layerLines) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.layerLines) Icon(Icons.Default.Check, null) })
             // Dark lines along the sharp edges of every model (the Regions paint view draws the same lines for one copy).
             DropdownMenuItem(text = { Text(stringResource(R.string.view_edge_outline)) },
-                onClick = { viewMenu = false; vm.setEdgeOutline(!state.edgeOutline) },
+                onClick = { viewMenu = false; vm.setEdgeOutline(!state.workspace.edgeOutline) },
                 leadingIcon = { Icon(Icons.Default.BorderOuter, null) },
-                trailingIcon = { if (state.edgeOutline) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.edgeOutline) Icon(Icons.Default.Check, null) })
             // Godot's wireframe shading: the triangle edges of every model.
             DropdownMenuItem(text = { Text(stringResource(R.string.view_wireframe)) },
-                onClick = { viewMenu = false; vm.setWireframe(!state.wireframe) },
+                onClick = { viewMenu = false; vm.setWireframe(!state.workspace.wireframe) },
                 leadingIcon = { Icon(Icons.Default.GridOn, null) },
-                trailingIcon = { if (state.wireframe) Icon(Icons.Default.Check, null) })
-            // Drag the key light on a ball (the lab's light angles, live).
+                trailingIcon = { if (state.workspace.wireframe) Icon(Icons.Default.Check, null) })
+            // Drag the key light on a ball (the light angles, live).
             DropdownMenuItem(text = { Text(stringResource(R.string.light_direction)) },
-                onClick = { viewMenu = false; vm.setLightPanel(!state.lightPanel) },
+                onClick = { viewMenu = false; vm.setLightPanel(!state.workspace.lightPanel) },
                 leadingIcon = { Icon(Icons.Default.WbSunny, null) },
-                trailingIcon = { if (state.lightPanel) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.lightPanel) Icon(Icons.Default.Check, null) })
             // The selection's bounding box (corner brackets): the same bit as More > Selection style > Box.
-            val boxOn = state.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
+            val boxOn = state.workspace.selectionStyle and app.orcaandroid.render.SelectionStyle.BOX != 0
             DropdownMenuItem(text = { Text(stringResource(R.string.view_bounding_box)) },
-                onClick = { viewMenu = false; vm.setSelectionStyle(state.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
+                onClick = { viewMenu = false; vm.setSelectionStyle(state.workspace.selectionStyle xor app.orcaandroid.render.SelectionStyle.BOX) },
                 leadingIcon = { Icon(Icons.Default.Crop, null) },
                 trailingIcon = { if (boxOn) Icon(Icons.Default.Check, null) })
             DropdownMenuItem(text = { Text(stringResource(R.string.view_dimensions)) },
-                onClick = { viewMenu = false; vm.setDimensions(!state.dimensions) },
+                onClick = { viewMenu = false; vm.setDimensions(!state.workspace.dimensions) },
                 leadingIcon = { Icon(Icons.Default.Straighten, null) },
-                trailingIcon = { if (state.dimensions) Icon(Icons.Default.Check, null) })
+                trailingIcon = { if (state.workspace.dimensions) Icon(Icons.Default.Check, null) })
         }
     }
 }
@@ -544,19 +515,19 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
     DropdownMenu(expanded = !bedPicker && !gcodes, onDismissRequest = onDismiss) {
         DropdownMenuItem(text = { Text(stringResource(R.string.slice_plate)) }, onClick = { onDismiss(); vm.slicing.slice(plate) })
         DropdownMenuItem(text = { Text(stringResource(R.string.arrange_plate)) }, onClick = { onDismiss(); vm.scene.arrange(false) })
-        if (state.supportsBedTypes) {
+        if (state.device.supportsBedTypes) {
             DropdownMenuItem(text = { Text(stringResource(R.string.plate_type) + ": " + vm.translator.plate(state.bedTypeOf(plate).orEmpty())) },
                 onClick = { bedPicker = true })
         }
         DropdownMenuItem(text = { Text(stringResource(R.string.layer_gcodes)) }, onClick = { gcodes = true })
-        if (state.scene.plates.size > 1)
+        if (state.workspace.scene.plates.size > 1)
             // No confirm: the plate's objects stay as floaters, like on the desktop (user, 2026-10-13).
             DropdownMenuItem(text = { Text(stringResource(R.string.delete_plate)) }, onClick = { onDismiss(); vm.scene.deletePlate(plate) })
     }
     if (bedPicker) {
         val current = state.bedTypeOf(plate)
         PickerDialog(stringResource(R.string.plate_type), current,
-            state.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
+            state.device.bedTypeChoices(current).map { PickerItem(it, vm.translator.plate(it)) }, onDismiss = { bedPicker = false; onDismiss() }) {
             bedPicker = false; onDismiss(); vm.scene.setPlateBedType(plate, it)
         }
     }
@@ -567,21 +538,21 @@ internal fun PlateMenu(state: UiState, vm: AppViewModel, plate: Int, onDismiss: 
 internal fun ProjectMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss: () -> Unit) {
     val openProject = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(vm.files::openProject) }
     val saveProject = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveProject) }
-    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.activePlate) } }
+    val exportStl = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/stl")) { it?.let { u -> vm.files.exportStl(u, state.workspace.activePlate) } }
     var confirmNew by remember { mutableStateOf(false) }
     // Like the desktop: an unsaved project is named after its first object.
-    val base = state.projectName ?: state.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
+    val base = state.workspace.projectName ?: state.workspace.scene.objects.firstOrNull()?.name?.substringBeforeLast('.') ?: "project"
     DropdownMenu(expanded = open, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.projectDirty) confirmNew = true else vm.files.newProject() })
+        DropdownMenuItem(text = { Text(stringResource(R.string.new_project)) }, onClick = { onDismiss(); if (state.workspace.projectDirty) confirmNew = true else vm.files.newProject() })
         DropdownMenuItem(text = { Text(stringResource(R.string.open_project)) }, onClick = { onDismiss(); openProject.launch(arrayOf("*/*")) })
         DropdownMenuItem(text = { Text(stringResource(R.string.save_project)) }, onClick = { onDismiss(); saveProject.launch("$base.3mf") },
-            enabled = !state.scene.isEmpty)
+            enabled = !state.workspace.scene.isEmpty)
         DropdownMenuItem(text = { Text(stringResource(R.string.export_stl)) }, onClick = { onDismiss(); exportStl.launch("$base.stl") },
-            enabled = !state.scene.isEmpty)
-        if (state.recents.isNotEmpty()) {
+            enabled = !state.workspace.scene.isEmpty)
+        if (state.chrome.recents.isNotEmpty()) {
             HorizontalDivider()
             Text(stringResource(R.string.recent), Modifier.padding(horizontal = 12.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
-            state.recents.take(6).forEach { r ->
+            state.chrome.recents.take(6).forEach { r ->
                 DropdownMenuItem(text = { Text(r.name, maxLines = 1) }, onClick = { onDismiss(); vm.files.openRecent(r) })
             }
         }
@@ -605,7 +576,7 @@ private fun ToolButtons(
     var moreGroup by remember { mutableStateOf<String?>(null) }
     var splitMenu by remember { mutableStateOf(false) }
     var dialog by remember { mutableStateOf<String?>(null) }
-    val selected = state.selection != null
+    val selected = state.workspace.selection != null
 
     val currentOnTap by rememberUpdatedState { addMenu = true }
     val currentOnLongPress by rememberUpdatedState(onAddLongPress)
@@ -630,28 +601,28 @@ private fun ToolButtons(
         AddMenu(state, vm, addMenu, onDismiss = { addMenu = false }, onDialog = { dialog = it })
     }
     if (!collapsed) {
-        ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.scene.isEmpty) { vm.scene.arrange(false) }
-        ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.scene.isEmpty) { vm.scene.autoOrient() }
-        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.selectMode, enabled = !state.scene.isEmpty) {
-            vm.scene.setSelectMode(!state.selectMode)
+        ToolButton(Icons.Default.AutoAwesomeMosaic, stringResource(R.string.arrange), enabled = !state.workspace.scene.isEmpty) { vm.scene.arrange(false) }
+        ToolButton(AutoOrientIcon, stringResource(R.string.auto_orient), enabled = !state.workspace.scene.isEmpty) { vm.scene.autoOrient() }
+        ToolButton(Icons.Default.SelectAll, stringResource(R.string.select_multiple), active = state.workspace.selectMode, enabled = !state.workspace.scene.isEmpty) {
+            vm.scene.setSelectMode(!state.workspace.selectMode)
         }
-        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.snapPrepare, enabled = !state.scene.isEmpty) { vm.toggleSnap() }
-        ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.scene.isEmpty,
-            face = { MoveLockFace(state.moveLock) }) { vm.cycleMoveLock() }
-        if (state.multiSelection.isNotEmpty()) {
+        ToolButton(SnapIcon, stringResource(R.string.snap_toggle), active = state.workspace.snapPrepare, enabled = !state.workspace.scene.isEmpty) { vm.toggleSnap() }
+        ToolButton(Icons.Default.OpenWith, stringResource(R.string.move_lock), enabled = !state.workspace.scene.isEmpty,
+            face = { MoveLockFace(state.workspace.moveLock) }) { vm.cycleMoveLock() }
+        if (state.workspace.multiSelection.isNotEmpty()) {
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
-            ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.multiSelection.size >= 2) { vm.scene.assemble() }
+            ToolButton(Icons.Default.CallMerge, stringResource(R.string.assemble), enabled = state.workspace.multiSelection.size >= 2) { vm.scene.assemble() }
             ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
         } else if (selected) {
-            ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.tool == Tool.LayOnFace) {
-                vm.scene.setTool(if (state.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
+            ToolButton(Icons.Default.VerticalAlignBottom, stringResource(R.string.lay_on_face), active = state.workspace.tool == Tool.LayOnFace) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.LayOnFace) Tool.None else Tool.LayOnFace)
             }
-            ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.tool is Tool.Cut) {
-                if (state.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
+            ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.workspace.tool is Tool.Cut) {
+                if (state.workspace.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
-            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
-            ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.tool == Tool.LayerHeight) {
-                vm.scene.setTool(if (state.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
+            ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.workspace.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
+            ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.workspace.tool == Tool.LayerHeight) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
             }
             ToolButton(Icons.Default.ContentCopy, stringResource(R.string.duplicate)) { vm.scene.duplicate(1) }
             ToolButton(Icons.Default.Delete, stringResource(R.string.delete)) { vm.scene.deleteSelected() }
@@ -697,9 +668,9 @@ private fun ToolButtons(
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }
             }
-        } else if (!state.scene.isEmpty) {
-            ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.tool == Tool.Measure) {
-                vm.scene.setTool(if (state.tool == Tool.Measure) Tool.None else Tool.Measure)
+        } else if (!state.workspace.scene.isEmpty) {
+            ToolButton(Icons.Default.Straighten, stringResource(R.string.measure), active = state.workspace.tool == Tool.Measure) {
+                vm.scene.setTool(if (state.workspace.tool == Tool.Measure) Tool.None else Tool.Measure)
             }
         }
     }
@@ -720,43 +691,42 @@ private fun ToolButton(icon: ImageVector, label: String, active: Boolean = false
                 containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) else
                 androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = alpha)),
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier.size(ViewDefaults.TOOL_BUTTON_DP.dp),
         ) { if (face != null) face() else Icon(icon, label) }
     }
 }
 
 /** Portrait Prepare without the OpenSCAD editor: the Slice button sits at the right end of the panel's grip (user, 2026-10-17). */
-fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.scad == null && !state.lab.sliceFloating
+fun sliceOnGrip(state: UiState, wide: Boolean) = !wide && state.design.scad == null && !ViewDefaults.SLICE_FLOATING
 
-/** The Slice button on the panel grip, sized by the Layout lab's own slider (on top of the main UI size only). */
+/** The Slice button on the panel grip. */
 @Composable
 fun GripSliceButton(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.lab.sliceScale, base.fontScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.sliceScale, base.fontScale)) {
         SliceButton(state, vm, modifier.padding(vertical = 4.dp))
     }
 }
 
 /**
  * The Slice button floating over the 3D view (user 2026-10-28): a tap slices, dragging it anywhere moves it. The spot is saved as
- * fractions of the free room (like the view cube), so it stays put across rotation; default bottom right. Sized by the slice slider.
+ * fractions of the free room (like the view cube), so it stays put across rotation; default bottom right.
  */
 @Composable
 private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSize) {
-    val lab = state.lab
+    val spot = state.chrome.sliceSpot
     var size by remember { mutableStateOf(IntSize.Zero) }
     var live by remember { mutableStateOf<Offset?>(null) }
     val roomX = (area.width - size.width).coerceAtLeast(0).toFloat()
     val roomY = (area.height - size.height).coerceAtLeast(0).toFloat()
-    val saved = if (lab.sliceX < 0f || lab.sliceY < 0f) Offset(roomX, roomY) else Offset(lab.sliceX * roomX, lab.sliceY * roomY)
+    val saved = if (spot.first < 0f || spot.second < 0f) Offset(roomX, roomY) else Offset(spot.first * roomX, spot.second * roomY)
     val at = (live ?: saved).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
-    // The drag handler outlives recompositions (keyed on the room only): read the current spot and lab, not the first ones.
+    // The drag handler outlives recompositions (keyed on the room only): read the current spot, not the first one.
     val curAt by rememberUpdatedState(at)
-    val curLab by rememberUpdatedState(lab)
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * lab.sliceScale, base.fontScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.sliceScale, base.fontScale)) {
         SliceButton(state, vm, Modifier
             .align(Alignment.TopStart)
             .offset { IntOffset(at.x.roundToInt(), at.y.roundToInt()) }
@@ -770,8 +740,8 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
                     },
                     onDragEnd = {
                         live?.let { p ->
-                            vm.setLab(curLab.copy(sliceX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
-                                               sliceY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
+                            vm.setSliceSpot(if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
+                                            if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f)
                         }
                         live = null
                     },
@@ -783,7 +753,7 @@ private fun BoxScope.FloatingSlice(state: UiState, vm: AppViewModel, area: IntSi
 
 @Composable
 private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
-    val running = state.slice as? SliceStatus.Running
+    val running = state.slicing.slice as? SliceStatus.Running
     if (running != null && !running.background) {
         Surface(modifier.width(260.dp), shape = RoundedCornerShape(16.dp), tonalElevation = 6.dp) {
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -794,15 +764,15 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
         }
     } else {
         var menu by remember { mutableStateOf(false) }
-        val multi = state.scene.plates.size > 1
+        val multi = state.workspace.scene.plates.size > 1
         // G4: once the plate's slice is ready (background or not) the button opens it, showing its time and weight and how
         // they changed since the plate's previous slice. While a background slice runs, a small ring shows its progress.
-        val result = state.results[state.activePlate]
-        val auto = running?.takeIf { it.plate == state.activePlate }
+        val result = state.slicing.results[state.workspace.activePlate]
+        val auto = running?.takeIf { it.plate == state.workspace.activePlate }
         val label = stringResource(when {
             result != null -> if (multi) R.string.preview_plate_n else R.string.preview_plate
             else -> if (multi) R.string.slice_plate_n else R.string.slice
-        }, state.activePlate + 1)
+        }, state.workspace.activePlate + 1)
         val autoText = stringResource(R.string.auto_slicing)
         Box(modifier) {
             // The FAB's text isn't in the accessibility tree (no label for TalkBack or ui dumps): name it here.
@@ -814,7 +784,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                     else Column {
                         Text(label)
                         Text(sliceStats(result.printTimeSeconds, result.filamentGrams,
-                            state.sliceDelta?.takeIf { it.plate == state.activePlate }), style = MaterialTheme.typography.labelSmall)
+                            state.slicing.sliceDelta?.takeIf { it.plate == state.workspace.activePlate }), style = MaterialTheme.typography.labelSmall)
                     }
                 },
                 icon = {
@@ -882,12 +852,12 @@ private fun ScrollCue(scroll: androidx.compose.foundation.ScrollState, up: Boole
     }
 }
 
-/** The plate switcher chosen in the Layout lab, as a bar of its own (nested on the portrait panel's grip). */
+/** The plate switcher as a bar of its own (nested on the portrait panel's grip). */
 @Composable
 fun PlateSwitcherBar(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modifier = Modifier) {
-    PlateScale(state.lab.plateScale) {
+    PlateScale(state.chrome.plateScale) {
         Row(modifier, verticalAlignment = Alignment.CenterVertically) {
-            when (state.lab.plates) {
+            when (state.chrome.plates) {
                 PlateSwitcher.TABS -> PlateTabs(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.FILMSTRIP -> Filmstrip(state, vm, view, Modifier.weight(1f))
                 PlateSwitcher.CHIPS -> Box(Modifier.weight(1f)) { PlateChips(state, vm, view) }

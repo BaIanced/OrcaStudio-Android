@@ -111,9 +111,9 @@ fun ScadPreviewPane(s: ScadEditorState, vm: AppViewModel, modifier: Modifier = M
             // Size and fit, top left.
             val size = mesh.size
             val f = { v: Float -> if (v >= 100f) "%.0f".format(v) else "%.1f".format(v) }
-            val plateW = ui.scene.plateWidth
-            val plateD = ui.scene.plateDepth
-            val maxH = ui.setup?.maxHeight ?: 0f
+            val plateW = ui.workspace.scene.plateWidth
+            val plateD = ui.workspace.scene.plateDepth
+            val maxH = ui.device.setup?.maxHeight ?: 0f
             val fitsFlat = (size.x <= plateW && size.y <= plateD) || (size.x <= plateD && size.y <= plateW)
             val warning = when {
                 !fitsFlat -> stringResource(R.string.scad_too_big, f(plateW), f(plateD))

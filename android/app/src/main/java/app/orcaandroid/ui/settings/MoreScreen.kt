@@ -25,7 +25,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.foundation.layout.size
-import app.orcaandroid.core.PlateSwitcher
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -41,8 +40,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.interaction.collectIsDraggedAsState
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.getValue
@@ -69,18 +66,6 @@ import app.orcaandroid.ui.components.SectionTitle
 import app.orcaandroid.ui.prepare.CalibrationDialog
 import app.orcaandroid.ui.prepare.SwitchRow
 
-/**
- * State of the Layout lab's peek (user, 2026-10-15): while the lab section is open, Prepare stays composed under More;
- * touching a control fades More out so the plate shows behind it. [frozen] = the lab at the touch, for More's own sizes.
- */
-object LabPeek {
-    var open by mutableStateOf(false)
-    var touching by mutableStateOf(false)
-    var frozen by mutableStateOf<app.orcaandroid.core.LayoutLab?>(null)
-    /** The slider being dragged (label, bar position 0..1), shown by the scaffold while More is faded, so its value stays visible. */
-    var readout by mutableStateOf<Pair<String, Float>?>(null)
-}
-
 /** App settings, preset management, calibration, recent files and about. */
 @Composable
 fun MoreScreen(state: UiState, vm: AppViewModel) {
@@ -98,12 +83,10 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
     val restoreBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) { restoreFrom = uri; dialog = "backup_import" } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally) {
         Column(Modifier.widthIn(max = 720.dp).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            LayoutLabSection(state, vm)
-
             // Collapsed by default (user 2026-10-28): File on the Prepare top bar has the same list; this stays as a fallback.
-            if (state.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.recents.size.coerceAtMost(10).toString()) {
+            if (state.chrome.recents.isNotEmpty()) Section(stringResource(R.string.recent), summary = state.chrome.recents.size.coerceAtMost(10).toString()) {
                 Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(vertical = 4.dp)) { state.recents.take(10).forEach { r -> RecentRow(r, { vm.files.openRecent(r) }) { vm.files.removeRecent(r) } } }
+                    Column(Modifier.padding(vertical = 4.dp)) { state.chrome.recents.take(10).forEach { r -> RecentRow(r, { vm.files.openRecent(r) }) { vm.files.removeRecent(r) } } }
                 }
             }
 
@@ -112,26 +95,26 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Entry(stringResource(R.string.print_doctor), stringResource(R.string.print_doctor_entry_text)) { dialog = "doctor" }
 
             Section(stringResource(R.string.printers_and_presets), initiallyOpen = true) {
-                Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
+                Entry(stringResource(R.string.manage_printers), stringResource(R.string.n_printers_selected, state.device.selectedPrinters.size)) { vm.presets.openPrinterSetup() }
                 Entry(stringResource(R.string.filament_vendors), stringResource(R.string.filament_vendors_text)) { dialog = "vendors" }
-                if (state.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
-                SwitchRow(stringResource(R.string.prefer_my_filaments), state.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
+                if (state.device.supportsBedTypes) Entry(stringResource(R.string.plate_types), stringResource(R.string.plate_types_text)) { dialog = "plates" }
+                SwitchRow(stringResource(R.string.prefer_my_filaments), state.device.preferMyFilaments, onChange = vm.presets::setPreferMyFilaments)
                 Text(stringResource(R.string.prefer_my_filaments_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
+                SwitchRow(stringResource(SettingPath.MIXED_TEMPS.label), state.device.allowMixedTemps, onChange = vm.presets::setAllowMixedTemps)
                 Text(stringResource(R.string.allow_mixed_temps_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                SwitchRow(stringResource(R.string.match_nozzle), state.matchNozzle, onChange = vm.presets::setMatchNozzle)
-                Text(stringResource(R.string.match_nozzle_text) + state.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
+                SwitchRow(stringResource(R.string.match_nozzle), state.device.matchNozzle, onChange = vm.presets::setMatchNozzle)
+                Text(stringResource(R.string.match_nozzle_text) + state.device.installedNozzles.entries.joinToString("") { "\n${it.key}: %.1f mm".format(it.value) },
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // Turning it on asks first (disclaimer); off is immediate.
-                SwitchRow(stringResource(R.string.expert_settings), state.expertSettings) { on -> if (on) dialog = "expert" else vm.presets.setExpertSettings(false) }
+                SwitchRow(stringResource(R.string.expert_settings), state.device.expertSettings) { on -> if (on) dialog = "expert" else vm.presets.setExpertSettings(false) }
                 Text(stringResource(R.string.expert_settings_text), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (state.dangerAllowed.isNotEmpty()) {
+                if (state.device.dangerAllowed.isNotEmpty()) {
                     val names = mapOf("NOZZLE_TEMP" to R.string.danger_name_nozzle_temp, "BED_TEMP" to R.string.danger_name_bed_temp,
                         "PRINTER_GEOMETRY" to R.string.danger_name_printer_geometry)
-                    val allowed = state.dangerAllowed.mapNotNull { names[it] }.map { stringResource(it) }.joinToString(", ")
+                    val allowed = state.device.dangerAllowed.mapNotNull { names[it] }.map { stringResource(it) }.joinToString(", ")
                     Entry(stringResource(R.string.danger_reset), stringResource(R.string.danger_reset_text, allowed)) { vm.presets.resetDangerAllowed() }
                 }
                 Entry(stringResource(R.string.import_presets), stringResource(R.string.import_presets_text)) { importPresets.launch(arrayOf("*/*")) }
@@ -141,7 +124,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 ProfileUpdatesCard(state, vm)
             }
 
-            Section(stringResource(R.string.ai_tools), summary = stringResource(if (state.aiTools) R.string.on else R.string.off)) { AiToolsSection(state, vm) }
+            Section(stringResource(R.string.ai_tools), summary = stringResource(if (state.chrome.aiTools) R.string.on else R.string.off)) { AiToolsSection(state, vm) }
 
             Section(stringResource(R.string.orca_cloud)) {
                 OrcaCloudSection()
@@ -154,34 +137,33 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 Entry(stringResource(R.string.backup_import), stringResource(R.string.backup_import_text)) { restoreBackup.launch(arrayOf("*/*")) }
             }
 
-            // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; was the Layout lab's pinch slider only).
+            // Zoom speeds (user 2026-10-19: the Quest thumbstick zooms far too fast; the pinch slider came first).
             Section(stringResource(R.string.controls)) {
-                val lab = state.lab
-                ShadowSlider(R.string.lab_pinch_speed, lab.pinchSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.PINCH_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(pinchSpeed = it)) }
-                ShadowSlider(R.string.wheel_zoom_speed, lab.wheelSpeed, 100f, "%", app.orcaandroid.core.LayoutLab.WHEEL_SPEEDS, lab, peek = false) { vm.setLab(state.lab.copy(wheelSpeed = it)) }
+                ZoomSlider(R.string.lab_pinch_speed, state.workspace.pinchSpeed, app.orcaandroid.core.ViewDefaults.PINCH_SPEEDS, vm::setPinchSpeed)
+                ZoomSlider(R.string.wheel_zoom_speed, state.workspace.wheelSpeed, app.orcaandroid.core.ViewDefaults.WHEEL_SPEEDS, vm::setWheelSpeed)
             }
 
             // Feel knobs (user 2026-10-27), also over MCP: tuning_get / tuning_set.
             Section(stringResource(R.string.tuning), summary = stringResource(R.string.tuning_summary)) { TuningSection() }
 
             Section(stringResource(R.string.appearance)) {
+                LayoutPrefs(state, vm)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(ThemeMode.SYSTEM to R.string.theme_system, ThemeMode.LIGHT to R.string.theme_light, ThemeMode.DARK to R.string.theme_dark)
                         .forEachIndexed { i, (mode, label) ->
-                            SegmentedButton(state.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                            SegmentedButton(state.chrome.themeMode == mode, { vm.setThemeMode(mode) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
                         }
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.dynamicColor, onChange = vm::setDynamicColor)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) SwitchRow(stringResource(R.string.dynamic_color), state.chrome.dynamicColor, onChange = vm::setDynamicColor)
                 ThemePresetList(state, vm)
-                SwitchRow(stringResource(R.string.contact_shadows), state.contactShadows, onChange = vm::setContactShadows)
+                SwitchRow(stringResource(R.string.contact_shadows), state.workspace.contactShadows, onChange = vm::setContactShadows)
                 // The desktop's View > Use Orthogonal View; a setting here since perspective is the usual look (user 2026-10-19). K toggles.
-                SwitchRow(stringResource(R.string.orthographic_camera), !state.perspective, onChange = { vm.setPerspective(!it) })
-                SwitchRow(stringResource(R.string.builder_split), state.builderSplit, onChange = vm::setBuilderSplit)
+                SwitchRow(stringResource(R.string.orthographic_camera), !state.workspace.perspective, onChange = { vm.setPerspective(!it) })
                 // Sharp layer lines without moire in Preview (user 2026-10-20); while moving costs GPU, so off by default.
                 Text(stringResource(R.string.preview_supersample), style = MaterialTheme.typography.bodyLarge)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf(R.string.supersample_off, R.string.supersample_still, R.string.supersample_always).forEachIndexed { i, label ->
-                        SegmentedButton(state.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
+                        SegmentedButton(state.workspace.supersample == i, { vm.setSupersample(i) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
                     }
                 }
                 Text(stringResource(R.string.selection_style), style = MaterialTheme.typography.bodyLarge)
@@ -189,18 +171,18 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                     val labels = listOf(R.string.selection_outline, R.string.selection_xray, R.string.selection_rim,
                         R.string.selection_wireframe, R.string.selection_box, R.string.selection_tint)
                     app.orcaandroid.render.SelectionStyle.ALL.zip(labels).forEach { (bit, label) ->
-                        val on = state.selectionStyle and bit != 0
-                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.selectionStyle xor bit) },
+                        val on = state.workspace.selectionStyle and bit != 0
+                        androidx.compose.material3.FilterChip(on, { vm.setSelectionStyle(state.workspace.selectionStyle xor bit) },
                             label = { Text(stringResource(label)) })
                     }
                 }
                 Entry(stringResource(R.string.design_mode), stringResource(R.string.design_mode_text)) { vm.setDesignMode(true) }
-                val custom = state.themeSpec.customCount(true) + state.themeSpec.customCount(false)
+                val custom = state.chrome.themeSpec.customCount(true) + state.chrome.themeSpec.customCount(false)
                 if (custom > 0) Entry(stringResource(R.string.reset_colors), pluralStringResource(R.plurals.n_custom_colors, custom, custom)) { dialog = "reset_colors" }
             }
 
             Section(stringResource(R.string.pen)) {
-                val pen = state.pen
+                val pen = state.workspace.pen
                 SwitchRow(stringResource(R.string.pen_ignore_fingers), pen.ignoreFingers, onChange = { vm.setPen(pen.copy(ignoreFingers = it)) })
                 PenActionRow(stringResource(R.string.pen_button1), pen.button1) { vm.setPen(pen.copy(button1 = it)) }
                 PenActionRow(stringResource(R.string.pen_button2), pen.button2) { vm.setPen(pen.copy(button2 = it)) }
@@ -221,18 +203,18 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             }
 
             Section(stringResource(R.string.misc)) {
-                SwitchRow(stringResource(R.string.double_back_quit), state.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
-                SwitchRow(stringResource(R.string.auto_slice), state.autoSlice, onChange = vm::setAutoSlice)
+                SwitchRow(stringResource(R.string.double_back_quit), state.chrome.doubleBackToQuit, onChange = vm::setDoubleBackToQuit)
+                SwitchRow(stringResource(R.string.auto_slice), state.slicing.autoSlice, onChange = vm::setAutoSlice)
                 Text(stringResource(R.string.auto_slice_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.project_filaments), style = MaterialTheme.typography.titleSmall)
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     listOf("ask" to R.string.pf_ask, "mine" to R.string.pf_mine, "project" to R.string.pf_project, "both" to R.string.pf_both).forEachIndexed { i, (mode, label) ->
-                        SegmentedButton(state.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
+                        SegmentedButton(state.device.projectFilaments == mode, { vm.setProjectFilaments(mode) }, SegmentedButtonDefaults.itemShape(i, 4)) { Text(stringResource(label), maxLines = 1) }
                     }
                 }
                 Text(stringResource(R.string.project_filaments_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                UndoLimitRow(state.undoLimit, vm::setUndoLimit)
-                AutoSaveRow(state.autoSaveSeconds, vm::setAutoSave)
+                UndoLimitRow(state.chrome.undoLimit, vm::setUndoLimit)
+                AutoSaveRow(state.chrome.autoSaveSeconds, vm::setAutoSave)
             }
 
             Section(stringResource(R.string.about), summary = BuildConfig.VERSION_NAME) { About() }
@@ -244,7 +226,7 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
         "reset_colors" -> AlertDialog(
             onDismissRequest = { dialog = null },
             text = { Text(stringResource(R.string.reset_colors_confirm)) },
-            confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
+            confirmButton = { TextButton({ dialog = null; vm.setThemeSpec(state.chrome.themeSpec.reset(true).reset(false)) }) { Text(stringResource(R.string.reset)) } },
             dismissButton = { TextButton({ dialog = null }) { Text(stringResource(R.string.cancel)) } },
         )
         "expert" -> app.orcaandroid.ui.components.ConfirmDialog(stringResource(R.string.expert_settings), stringResource(R.string.expert_settings_warning),
@@ -326,11 +308,11 @@ private fun recentPlace(context: android.content.Context, uri: String): String? 
 /** Found profile updates with Install. */
 @Composable
 private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
-    val updates = state.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
+    val updates = state.device.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
             updates.forEach { Text("${it.vendor}: ${it.installed} → ${it.available}", style = MaterialTheme.typography.bodySmall) }
-            val progress = state.profileUpdateProgress
+            val progress = state.device.profileUpdateProgress
             if (progress != null) {
                 Text(progress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(top = 8.dp))
@@ -339,91 +321,6 @@ private fun ProfileUpdatesCard(state: UiState, vm: AppViewModel) {
                 TextButton(onClick = vm.presets::installProfileUpdates) { Text(stringResource(R.string.install_updates)) }
             }
         }
-    }
-}
-
-/**
- * Temporary (user, 2026-10-13): layout variants to try on the device. Goes away once the user has
- * picked; the picks become the only layout.
- */
-@Composable
-private fun LayoutLabSection(state: UiState, vm: AppViewModel) {
-    Section(stringResource(R.string.layout_lab), summary = stringResource(R.string.layout_lab_summary)) {
-      androidx.compose.runtime.DisposableEffect(Unit) {
-        LabPeek.open = true
-        onDispose { LabPeek.open = false; LabPeek.touching = false; LabPeek.frozen = null; LabPeek.readout = null }
-      }
-      LayoutLabBody(state, vm)
-    }
-}
-
-/** The lab controls, also shown in the Layout tab of the design panel (they apply live via [AppViewModel.setLab]). */
-@Composable
-internal fun LayoutLabBody(state: UiState, vm: AppViewModel) {
-    val lab = state.lab
-    val current by androidx.compose.runtime.rememberUpdatedState(lab)
-    run {
-      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(R.string.layout_lab_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Section(stringResource(R.string.lab_group_plates)) {
-        Text(stringResource(R.string.lab_plate_switcher), style = MaterialTheme.typography.bodyMedium)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf(PlateSwitcher.TABS to R.string.lab_tabs, PlateSwitcher.FILMSTRIP to R.string.lab_filmstrip, PlateSwitcher.CHIPS to R.string.lab_chips)
-                .forEachIndexed { i, (v, label) ->
-                    SegmentedButton(lab.plates == v, { vm.setLab(lab.copy(plates = v)) }, SegmentedButtonDefaults.itemShape(i, 3)) { Text(stringResource(label)) }
-                }
-        }
-        SwitchRow(stringResource(R.string.lab_plate_label), lab.plateLabel, onChange = { vm.setLab(lab.copy(plateLabel = it)) })
-        SwitchRow(stringResource(R.string.lab_show_plates), lab.showPlates, onChange = { vm.setLab(lab.copy(showPlates = it)) })
-        SwitchRow(stringResource(R.string.lab_plates_on_handle), lab.platesOnHandle, onChange = { vm.setLab(lab.copy(platesOnHandle = it)) })
-        SwitchRow(stringResource(R.string.lab_plate_hd), lab.plateHd, onChange = { vm.setLab(lab.copy(plateHd = it)) })
-        if (lab.plateHd) {
-            val hdContext = LocalContext.current
-            fun hdText(v: Float) = hdContext.getString(R.string.lab_plate_hd_alpha, (v * 100).toInt())
-            Text(hdText(lab.plateHdAlpha), style = MaterialTheme.typography.bodyMedium)
-            LabSlider(lab.plateHdAlpha, { LabPeek.readout = hdText(it) to (it - 0.1f) / 0.9f; vm.setLab(lab.copy(plateHdAlpha = it)) }, 0.1f..1f, current)
-            fun underText(v: Float) = hdContext.getString(R.string.lab_plate_hd_under, (v * 100).toInt())
-            Text(underText(lab.plateUnderAlpha), style = MaterialTheme.typography.bodyMedium)
-            LabSlider(lab.plateUnderAlpha, { LabPeek.readout = underText(it) to it; vm.setLab(lab.copy(plateUnderAlpha = it)) }, 0f..1f, current)
-        }
-        }
-        Section(stringResource(R.string.lab_group_layout)) {
-        SwitchRow(stringResource(R.string.lab_slice_floating), lab.sliceFloating, onChange = { vm.setLab(lab.copy(sliceFloating = it)) })
-        SwitchRow(stringResource(R.string.lab_tools_left), lab.toolsLeft, onChange = { vm.setLab(lab.copy(toolsLeft = it)) })
-        SwitchRow(stringResource(R.string.lab_fullscreen_portrait), lab.fullscreenPortrait, onChange = { vm.setLab(lab.copy(fullscreenPortrait = it)) })
-        SwitchRow(stringResource(R.string.lab_view_cube), lab.viewCube, onChange = { vm.setLab(lab.copy(viewCube = it)) })
-        SwitchRow(stringResource(R.string.lab_pie_menu), lab.pieMenu, onChange = { vm.setLab(lab.copy(pieMenu = it)) })
-        }
-        Section(stringResource(R.string.lab_group_scales)) {
-        val alphaContext = LocalContext.current
-        val alphaText = stringResource(R.string.lab_overlay_alpha, (lab.overlayAlpha * 100).toInt())
-        Text(alphaText, style = MaterialTheme.typography.bodyMedium)
-        // Same readout card as the size sliders: More is faded while dragging, so the value stays in view.
-        LabSlider(lab.overlayAlpha, {
-            LabPeek.readout = alphaContext.getString(R.string.lab_overlay_alpha, (it * 100).toInt()) to (it - 0.2f) / 0.8f
-            vm.setLab(lab.copy(overlayAlpha = it))
-        }, 0.2f..1f, current)
-        Text(stringResource(R.string.lab_scale_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        ScaleSlider(R.string.lab_text_scale, lab.textScale, app.orcaandroid.core.LayoutLab.TEXT_SCALES, current) { vm.setLab(state.lab.copy(textScale = it)) }
-        ScaleSlider(R.string.lab_ui_scale, lab.uiScale, app.orcaandroid.core.LayoutLab.UI_SCALES, current) { vm.setLab(state.lab.copy(uiScale = it)) }
-        ScaleSlider(R.string.lab_plate_scale, lab.plateScale, app.orcaandroid.core.LayoutLab.PLATE_SCALES, current) { vm.setLab(state.lab.copy(plateScale = it)) }
-        ScaleSlider(R.string.lab_slice_scale, lab.sliceScale, app.orcaandroid.core.LayoutLab.SLICE_SCALES, current) { vm.setLab(state.lab.copy(sliceScale = it)) }
-        ScaleSlider(R.string.lab_overlay_scale, lab.overlayScale, app.orcaandroid.core.LayoutLab.OVERLAY_SCALES, current) { vm.setLab(state.lab.copy(overlayScale = it)) }
-        }
-        Section(stringResource(R.string.lab_group_shadows)) {
-        ShadowSlider(R.string.lab_shadow_strength, lab.shadowStrength, 100f, "%", app.orcaandroid.core.LayoutLab.SHADOW_STRENGTHS, current) { vm.setLab(state.lab.copy(shadowStrength = it)) }
-        ShadowSlider(R.string.lab_shadow_soft, lab.shadowSoft, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_SOFTS, current) { vm.setLab(state.lab.copy(shadowSoft = it)) }
-        ShadowSlider(R.string.lab_shadow_bias, lab.shadowBias, 1f, " mm", app.orcaandroid.core.LayoutLab.SHADOW_BIASES, current) { vm.setLab(state.lab.copy(shadowBias = it)) }
-        }
-        Section(stringResource(R.string.lab_group_light)) {
-        ShadowSlider(R.string.lab_light_azimuth, lab.lightAzimuth, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_AZIMUTHS, current) { vm.setLab(state.lab.copy(lightAzimuth = it)) }
-        ShadowSlider(R.string.lab_light_elevation, lab.lightElevation, 1f, "°", app.orcaandroid.core.LayoutLab.LIGHT_ELEVATIONS, current) { vm.setLab(state.lab.copy(lightElevation = it)) }
-        ShadowSlider(R.string.lab_light_strength, lab.lightStrength, 100f, "%", app.orcaandroid.core.LayoutLab.LIGHT_STRENGTHS, current) { vm.setLab(state.lab.copy(lightStrength = it)) }
-        ShadowSlider(R.string.lab_camera_light, lab.cameraLight, 100f, "%", app.orcaandroid.core.LayoutLab.CAMERA_LIGHTS, current) { vm.setLab(state.lab.copy(cameraLight = it)) }
-        ShadowSlider(R.string.lab_orbit_inertia, lab.orbitInertia, 100f, "%", app.orcaandroid.core.LayoutLab.ORBIT_INERTIAS, current) { vm.setLab(state.lab.copy(orbitInertia = it)) }
-        }
-        TextButton(onClick = { vm.setLab(app.orcaandroid.core.LayoutLab()) }) { Text(stringResource(R.string.reset)) }
-      }
     }
 }
 
@@ -442,41 +339,11 @@ private fun TuningSection() {
     TextButton(onClick = { t.reset() }) { Text(stringResource(R.string.reset)) }
 }
 
-/** A shadow look slider (strength in %, penumbra and bias in mm): live on the plate behind, like the size sliders. */
+/** A zoom speed slider (in %, the label takes the formatted value), applied live. */
 @Composable
-private fun ShadowSlider(label: Int, value: Float, factor: Float, unit: String, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, peek: Boolean = true, onSet: (Float) -> Unit) {
-    val context = LocalContext.current
-    // The readout is formatted from the value being set, not the one composed before this drag step (it lagged one step behind).
-    fun format(v: Float) = context.getString(label, if (factor == 1f) "%.1f".format(v) + unit else kotlin.math.round(v * factor).toInt().toString() + unit)
-    Text(format(value), style = MaterialTheme.typography.bodyMedium)
-    if (!peek) androidx.compose.material3.Slider(value, onSet, valueRange = range) // nothing to see behind: More stays lit
-    else LabSlider(value, { LabPeek.readout = format(it) to (it - range.start) / (range.endInclusive - range.start); onSet(it) }, range, lab)
-}
-
-/** A size slider in 5 % steps, applied live (More is frozen at its touch-time size while dragging, so it doesn't move under the finger). */
-@Composable
-private fun ScaleSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, onSet: (Float) -> Unit) {
-    val context = LocalContext.current
-    fun format(v: Float) = context.getString(label, kotlin.math.round(v * 100).toInt())
-    Text(format(value), style = MaterialTheme.typography.bodyMedium)
-    // While a finger is down on a slider the whole of More is faded; the scaffold shows this readout so the value stays in view.
-    // It shows the value being set (snapped to 5 %), not the one composed before this drag step (it lagged one step behind).
-    LabSlider(value, { val v = kotlin.math.round(it * 20) / 20f; LabPeek.readout = format(v) to (it - range.start) / (range.endInclusive - range.start); onSet(v) }, range, lab,
-        steps = kotlin.math.round((range.endInclusive - range.start) * 20).toInt() - 1)
-}
-
-/** A lab slider: only a finger on the slider itself fades/freezes More (not any touch in the section). */
-@Composable
-private fun LabSlider(value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPointRange<Float>, lab: app.orcaandroid.core.LayoutLab, steps: Int = 0) {
-    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val pressed by source.collectIsPressedAsState()
-    val dragged by source.collectIsDraggedAsState()
-    val down = pressed || dragged
-    androidx.compose.runtime.LaunchedEffect(down) {
-        if (down) { if (!LabPeek.touching) LabPeek.frozen = lab } else { LabPeek.frozen = null; LabPeek.readout = null }
-        LabPeek.touching = down
-    }
-    androidx.compose.material3.Slider(value, onChange, valueRange = range, steps = steps, interactionSource = source)
+private fun ZoomSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onSet: (Float) -> Unit) {
+    Text(stringResource(label, kotlin.math.round(value * 100).toInt().toString() + "%"), style = MaterialTheme.typography.bodyMedium)
+    androidx.compose.material3.Slider(value, onSet, valueRange = range)
 }
 
 /** Asks for the backup passphrase ([confirm]: twice, for a new backup). */
@@ -534,24 +401,24 @@ private fun UndoLimitRow(limit: Int, onChange: (Int) -> Unit) {
 private fun AiToolsSection(state: UiState, vm: AppViewModel) {
     val context = LocalContext.current
     val port = app.orcaandroid.core.AI_TOOLS_PORT
-    SwitchRow(stringResource(R.string.ai_tools_switch), state.aiTools, onChange = vm::setAiTools)
+    SwitchRow(stringResource(R.string.ai_tools_switch), state.chrome.aiTools, onChange = vm::setAiTools)
     Text(stringResource(R.string.ai_tools_text, port), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (!state.aiTools) return
-    SwitchRow(stringResource(R.string.ai_tools_lan), state.aiToolsLan, onChange = { vm.setAiTools(true, it) })
-    if (state.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
+    if (!state.chrome.aiTools) return
+    SwitchRow(stringResource(R.string.ai_tools_lan), state.chrome.aiToolsLan, onChange = { vm.setAiTools(true, it) })
+    if (state.chrome.aiToolsLan) Text(stringResource(R.string.ai_tools_lan_text, state.chrome.aiAddresses.joinToString { "http://$it:$port/mcp" }.ifEmpty { "-" }),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    state.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
+    state.chrome.aiError?.let { Text(stringResource(R.string.ai_tools_error, it), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.error) }
     var shown by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.aiToken else "••••" + state.aiToken.takeLast(4),
+        Text(stringResource(R.string.ai_token) + ": " + if (shown) state.chrome.aiToken else "••••" + state.chrome.aiToken.takeLast(4),
             Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
         TextButton(onClick = { shown = !shown }) { Text(stringResource(if (shown) R.string.ai_token_hide else R.string.ai_token_show)) }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         TextButton(onClick = {
-            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.aiToken}\""
+            val cmd = "claude mcp add --transport http orca http://127.0.0.1:$port/mcp --header \"Authorization: Bearer ${state.chrome.aiToken}\""
             context.getSystemService(android.content.ClipboardManager::class.java)
                 .setPrimaryClip(android.content.ClipData.newPlainText("MCP setup", cmd))
             vm.toast(context.getString(R.string.ai_command_copied))
@@ -619,7 +486,7 @@ private fun ThemePresetList(state: UiState, vm: AppViewModel) {
     val dark = app.orcaandroid.ui.theme.LocalAppColors.current.dark
     Text(stringResource(R.string.color_preset), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
     app.orcaandroid.ui.theme.ThemePreset.entries.forEach { p ->
-        val selected = !state.dynamicColor && state.themeSpec.preset == p.key
+        val selected = !state.chrome.dynamicColor && state.chrome.themeSpec.preset == p.key
         Row(Modifier.fillMaxWidth().clickable { vm.setThemePreset(p.key) }.padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             RadioButton(selected, { vm.setThemePreset(p.key) })
@@ -643,10 +510,10 @@ private fun Entry(title: String, subtitle: String?, onClick: () -> Unit) {
 /** Which filament brands' system presets appear in the filament lists. */
 @Composable
 private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val vendors = remember(state.setup) {
-        state.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
+    val vendors = remember(state.device.setup) {
+        state.device.setup?.filaments.orEmpty().filter { it.system }.map { it.brandName }.distinct().sortedBy { it.lowercase() }
     }
-    var hidden by remember { mutableStateOf(state.hiddenFilamentVendors) }
+    var hidden by remember { mutableStateOf(state.device.hiddenFilamentVendors) }
     var query by remember { mutableStateOf("") }
     val shown = vendors.filter { it.contains(query.trim(), ignoreCase = true) }
     AlertDialog(
@@ -680,9 +547,9 @@ private fun FilamentVendorsDialog(state: UiState, vm: AppViewModel, onDismiss: (
 /** Which plate types the plate pickers offer (checkbox) and which one plates without their own use (radio). */
 @Composable
 private fun PlateTypesDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val types = state.setup?.bedTypes.orEmpty()
-    var hidden by remember { mutableStateOf(state.hiddenBedTypes) }
-    var preferred by remember { mutableStateOf(state.preferredBedType.takeIf { it in types }.orEmpty()) }
+    val types = state.device.setup?.bedTypes.orEmpty()
+    var hidden by remember { mutableStateOf(state.device.hiddenBedTypes) }
+    var preferred by remember { mutableStateOf(state.device.preferredBedType.takeIf { it in types }.orEmpty()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.plate_types)) },

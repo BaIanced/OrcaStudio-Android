@@ -112,7 +112,6 @@ import app.orcaandroid.ui.preview.PreviewOverlay
 import app.orcaandroid.ui.preview.PreviewPanel
 import app.orcaandroid.ui.models.ModelBrowser
 import app.orcaandroid.ui.models.ModelsScreen
-import app.orcaandroid.ui.settings.LabPeek
 import app.orcaandroid.ui.settings.MoreScreen
 import androidx.compose.ui.graphics.graphicsLayer
 import app.orcaandroid.ui.settings.PrinterSetupScreen
@@ -136,18 +135,18 @@ fun AppScaffold(state: UiState, vm: AppViewModel) {
     // Design panel: docked as a right sidebar by default, detachable to a floating panel (user, 2026-10-30).
     val narrowScreen = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 600
     var designFloating by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(narrowScreen) }
-    // Interface and text size (Layout lab), on top of the system's display and font size.
+    // Interface and text size (More > Appearance), on top of the system's display and font size.
     val base = androidx.compose.ui.platform.LocalDensity.current
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-        androidx.compose.ui.unit.Density(base.density * state.lab.uiScale, base.fontScale * state.lab.textScale)) {
+        androidx.compose.ui.unit.Density(base.density * state.chrome.interfaceSize, base.fontScale * state.chrome.textScale)) {
         when {
-            state.phase == Phase.LOADING -> Busy(state.busy ?: stringResource(R.string.starting))
-            state.phase == Phase.SETUP || state.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
-            state.editor != null -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { SettingsEditor(state, vm) }
-            else -> Box(Modifier.fillMaxSize().padding(end = if (state.designMode && !designFloating) app.orcaandroid.ui.theme.DESIGN_DOCK_WIDTH else 0.dp)) { MainLayout(state, vm) }
+            state.chrome.phase == Phase.LOADING -> Busy(state.chrome.busy ?: stringResource(R.string.starting))
+            state.chrome.phase == Phase.SETUP || state.chrome.showPrinterSetup -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { PrinterSetupScreen(state, vm) }
+            state.chrome.editor != null -> Themed(Region.EDITOR, Modifier.fillMaxSize(), fill = true) { SettingsEditor(state, vm) }
+            else -> Box(Modifier.fillMaxSize().padding(end = if (state.chrome.designMode && !designFloating) app.orcaandroid.ui.theme.DESIGN_DOCK_WIDTH else 0.dp)) { MainLayout(state, vm) }
         }
         // The design panel under the dialogs: the message bar sits at the panel's height (it hid it, phone r189).
-        if (state.designMode) ThemeDesignPanel(state, vm, designFloating) { designFloating = it }
+        if (state.chrome.designMode) ThemeDesignPanel(state, vm, designFloating) { designFloating = it }
         Themed(Region.DIALOGS) { GlobalDialogs(state, vm) }
     }
 }
@@ -160,23 +159,23 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     val dark = app.orcaandroid.ui.components.appIsDark()
     val browser = remember(dark) { lazy { ModelBrowser(context, vm, dark) } }
     DisposableEffect(browser) { onDispose { if (browser.isInitialized()) browser.value.destroy() } }
-    LaunchedEffect(browser, state.modelsUrl) {
-        state.modelsUrl?.let { browser.value.openUrl(it); vm.modelsUrlOpened() }
+    LaunchedEffect(browser, state.chrome.modelsUrl) {
+        state.chrome.modelsUrl?.let { browser.value.openUrl(it); vm.modelsUrlOpened() }
     }
     // Back leads home: other tabs return to Prepare, and Prepare drops the tool and selection
     // first (as Esc does). Screens composed below (the Models browser) take back before this.
     // With nothing left to go back to, Back asks before quitting (or, as chosen under More, needs
     // a second press within 2 s), instead of Android's default of sending the app to the background.
-    val clearable = state.screen == Screen.PREPARE && (state.tool != Tool.None || state.selectedItems.isNotEmpty() || state.selectMode)
+    val clearable = state.chrome.screen == Screen.PREPARE && (state.workspace.tool != Tool.None || state.workspace.selectedItems.isNotEmpty() || state.workspace.selectMode)
     var askQuit by remember { mutableStateOf(false) }
     var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
-            state.scad != null && state.screen == Screen.PREPARE -> if (state.scadOnPlate && state.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
-            state.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
+            state.design.scad != null && state.chrome.screen == Screen.PREPARE -> if (state.design.scadOnPlate && state.design.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
+            state.chrome.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)
             clearable -> { vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false) }
-            !state.doubleBackToQuit -> askQuit = true
+            !state.chrome.doubleBackToQuit -> askQuit = true
             android.os.SystemClock.uptimeMillis() - lastBack < 2000 -> (context as? android.app.Activity)?.finish()
             else -> {
                 lastBack = android.os.SystemClock.uptimeMillis()
@@ -199,35 +198,12 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
             Box(m.clipToBounds()) {
                 // Fullscreen portrait leaves the camera strip at the top to the 3D view only; the rest keeps clear.
                 val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
-                when (state.screen) {
+                when (state.chrome.screen) {
                     Screen.PREPARE, Screen.PREVIEW -> Workspace(state, vm, wide)
                     Screen.DEVICE -> Themed(Region.DEVICE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { DeviceScreen(state, vm) } }
                     // The Models toolbar uses the camera strip itself (SplitAroundCutout), so no belowHole here.
                     Screen.MODELS -> Themed(Region.MODELS, Modifier.fillMaxSize(), fill = true) { ModelsScreen(browser.value) }
-                    Screen.MORE -> {
-                        // Layout lab open: Prepare stays composed under More, which fades out while a control is touched.
-                        if (LabPeek.open) Workspace(state.copy(screen = Screen.PREPARE), vm, wide)
-                        val fade by androidx.compose.animation.core.animateFloatAsState(if (LabPeek.touching) 0f else 1f, label = "labFade")
-                        // While touched, More keeps the sizes it had at the touch, so a slider doesn't move under the finger.
-                        val frozen = LabPeek.frozen
-                        val here = androidx.compose.ui.platform.LocalDensity.current
-                        val keep = if (frozen == null) here else androidx.compose.ui.unit.Density(
-                            here.density / state.lab.uiScale * frozen.uiScale, here.fontScale / state.lab.textScale * frozen.textScale)
-                        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides keep) {
-                            Box(Modifier.fillMaxSize().graphicsLayer { alpha = fade }) {
-                                Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
-                            }
-                        }
-                        LabPeek.readout?.takeIf { LabPeek.touching }?.let { (text, fraction) ->
-                            androidx.compose.material3.Surface(Modifier.align(Alignment.Center).widthIn(max = 360.dp).fillMaxWidth(0.8f),
-                                shape = RoundedCornerShape(12.dp), tonalElevation = 6.dp, shadowElevation = 4.dp) {
-                                Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-                                    Text(text, style = MaterialTheme.typography.bodyMedium)
-                                    androidx.compose.material3.LinearProgressIndicator({ fraction.coerceIn(0f, 1f) }, Modifier.fillMaxWidth().padding(top = 6.dp))
-                                }
-                            }
-                        }
-                    }
+                    Screen.MORE -> Themed(Region.MORE, Modifier.fillMaxSize(), fill = true) { Box(belowHole) { MoreScreen(state, vm) } }
                 }
             }
         }
@@ -241,7 +217,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                     CutoutAwareColumn {
                         DESTINATIONS.forEach { d ->
                             NavigationRailItem(
-                                selected = state.screen == d.screen,
+                                selected = state.chrome.screen == d.screen,
                                 onClick = { vm.setScreen(d.screen) },
                                 icon = { Icon(d.icon, null) },
                                 label = { Text(stringResource(d.label)) },
@@ -260,7 +236,7 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
                 if (!shop) NavigationBar(containerColor = navBar) {
                     DESTINATIONS.forEach { d ->
                         NavigationBarItem(
-                            selected = state.screen == d.screen,
+                            selected = state.chrome.screen == d.screen,
                             onClick = { vm.setScreen(d.screen) },
                             icon = { Icon(d.icon, null) },
                             label = { Text(stringResource(d.label)) },
@@ -316,21 +292,19 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     LaunchedEffect(ProblemFocus.tick) {
         if (ProblemFocus.tick == 0) return@LaunchedEffect
         if (PanelSize.height < 360f) PanelSize.height = 360f
-        if (state.lab.panelTucked) vm.setLab(state.lab.copy(panelTucked = false))
+        if (state.chrome.panelTucked) vm.setPanelTucked(false)
     }
-    var viewportSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
     val viewport: @Composable (Modifier) -> Unit = { m ->
-        Box(m.onSizeChanged { viewportSize = it }) {
+        Box(m) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide()
                 .onGloballyPositioned { app.orcaandroid.ui.prepare.CanvasBounds.rect = it.boundsInWindow() })
-            // Floating controls have their own size (Layout lab).
+            // Floating controls have their own size, on top of the interface size.
             val base = androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
-                androidx.compose.ui.unit.Density(base.density * state.lab.overlayScale, base.fontScale)) {
-                if (state.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
+                androidx.compose.ui.unit.Density(base.density * state.chrome.overlayScale, base.fontScale)) {
+                if (state.chrome.screen == Screen.PREPARE) Themed(Region.PREPARE_TOOLS) { PrepareOverlay(state, vm, plateView, wide) }
                 else Themed(Region.PREVIEW_TOOLS) { PreviewOverlay(state, vm, plateView, wide) }
             }
-            if (state.lab.viewCube) plateView?.let { ViewCubeSpot(it.camera, state.lab, vm, viewportSize) }
             // Below the top tool row, centered.
             app.orcaandroid.ui.components.Notices(state, vm, Modifier.align(Alignment.TopCenter).padding(top = 64.dp))
             // Gesture scrubber (held setting label): its list sits high, above the finger.
@@ -349,17 +323,17 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop: Boolean, viewport: @Composable (Modifier) -> Unit, plateView: PlateView?) {
-    val panelRegion = if (state.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
+    val panelRegion = if (state.chrome.screen == Screen.PREPARE) Region.PREPARE_PANEL else Region.PREVIEW_PANEL
     val panel: @Composable () -> Unit = {
-        if (state.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
+        if (state.chrome.screen == Screen.PREPARE) PreparePanel(state, vm, wide) else PreviewPanel(state, vm, wide)
     }
     // The OpenSCAD editor takes the panel's place on Prepare. The design shows alone in the design view,
     // or (eye toggle, user 2026-10-13) as a ghost on the plate; the editor can be resized with the handle.
-    val scad = state.scad?.takeIf { state.screen == Screen.PREPARE && !shop }
+    val scad = state.design.scad?.takeIf { state.chrome.screen == Screen.PREPARE && !shop }
     // Fullscreen portrait: the 3D view uses the camera strip at the top, everything else keeps below it.
     val belowHole = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top))
     val scadView: @Composable (Modifier) -> Unit = { m ->
-        if (scad != null && state.scadOnPlate) Box(m) {
+        if (scad != null && state.design.scadOnPlate) Box(m) {
             viewport(Modifier.fillMaxSize())
             // Code designs go back to their preview pane; shape designs have only this view.
             if (scad.shapes == null) ScadPlateToggle(onPlate = true, { vm.setScadOnPlate(false) }, Modifier.align(Alignment.TopEnd).then(belowHole).padding(top = 76.dp, end = 12.dp))
@@ -382,7 +356,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             val width = (if (ScadEditorSize.width > 0f) ScadEditorSize.width.dp else (total * 0.45f).coerceIn(420.dp, 640.dp))
                 .coerceIn(300.dp, (total - 240.dp).coerceAtLeast(300.dp))
             Row(Modifier.fillMaxSize()) {
-                if (scad != null && !state.scadHidden) {
+                if (scad != null && !state.design.scadHidden) {
                     scadView(Modifier.weight(1f).fillMaxHeight())
                     Themed(Region.OPENSCAD) { DragHandle(vertical = true) { d -> ScadEditorSize.width = (width - d).value } }
                     Themed(Region.OPENSCAD) { Surface(Modifier.width(width).fillMaxHeight(), tonalElevation = 1.dp) { Box(belowHole) { ScadPanel(scad, vm, embeddedPreview = false) } } }
@@ -395,20 +369,21 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
                     if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight()); return@Row }
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
-                    val lab = state.lab
+                    val tuckedNow = state.chrome.panelTucked
+                    val panelWidth = state.chrome.panelWidth
                     val maxPanel = (total - 240.dp).coerceAtLeast(PANEL_MIN)
-                    val stored = (if (lab.panelWidth > 0f) lab.panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
+                    val stored = (if (panelWidth > 0f) panelWidth.dp else PANEL_DEFAULT).coerceIn(PANEL_MIN, maxPanel)
                     var live by remember { mutableStateOf<androidx.compose.ui.unit.Dp?>(null) }
-                    val shown = live ?: if (lab.panelTucked) 0.dp else stored
+                    val shown = live ?: if (tuckedNow) 0.dp else stored
                     PanelEdge(
                         tucked = shown < PANEL_SNAP,
-                        onClick = { vm.setLab(lab.copy(panelTucked = !lab.panelTucked)) },
+                        onClick = { vm.setPanelTucked(!tuckedNow) },
                         onDrag = { d -> live = ((live ?: shown) - d).coerceIn(0.dp, maxPanel) },
                         onDragEnd = { flick ->
-                            if (flick != null) vm.setLab(lab.copy(panelTucked = flick))
+                            if (flick != null) vm.setPanelTucked(flick)
                             else live?.let { w ->
-                                vm.setLab(if (w < PANEL_SNAP) lab.copy(panelTucked = true)
-                                          else lab.copy(panelTucked = false, panelWidth = w.coerceAtLeast(PANEL_MIN).value))
+                                if (w < PANEL_SNAP) vm.setPanelTucked(true)
+                                else { vm.setPanelWidth(w.coerceAtLeast(PANEL_MIN).value); vm.setPanelTucked(false) }
                             }
                             live = null
                         },
@@ -423,7 +398,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             }
         }
     } else if (scad != null) {
-        if (state.scadHidden) Box(Modifier.fillMaxSize()) {
+        if (state.design.scadHidden) Box(Modifier.fillMaxSize()) {
             viewport(Modifier.fillMaxSize())
             // Above the Slice button (same corner; it covered it, phone r189).
             ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
@@ -454,9 +429,9 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             } else Column(Modifier.fillMaxSize()) {
                 viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
                 if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
-                val onHandle = state.lab.platesOnHandle && state.screen == Screen.PREPARE
-                val slice = state.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
-                val handlePlates = onHandle && state.lab.showPlates
+                val onHandle = state.chrome.platesOnHandle && state.chrome.screen == Screen.PREPARE
+                val slice = state.chrome.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
+                val handlePlates = onHandle && state.chrome.showPlates
                 val header: (@Composable () -> Unit)? = if (handlePlates || slice) ({
                     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (handlePlates) PlateSwitcherBar(state, vm, plateView, Modifier.weight(1f)) else Box(Modifier.weight(1f))
@@ -617,8 +592,8 @@ private fun PanelEdge(tucked: Boolean, onClick: () -> Unit, onDrag: (androidx.co
 @Composable
 private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
     // The filament question comes up while a project opens: it replaces the busy dialog, which would cover it.
-    state.filamentChoice?.let { FilamentChoiceDialog(it) { mode, remember -> vm.files.answerFilaments(mode, remember) } }
-    state.projectOrImport?.let { name ->
+    state.chrome.filamentChoice?.let { FilamentChoiceDialog(it) { mode, remember -> vm.files.answerFilaments(mode, remember) } }
+    state.chrome.projectOrImport?.let { name ->
         AlertDialog(
             onDismissRequest = { vm.files.answerOpenAsProject(false) },
             title = { Text(stringResource(R.string.open_or_import_title)) },
@@ -627,19 +602,19 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             dismissButton = { androidx.compose.material3.TextButton({ vm.files.answerOpenAsProject(false) }) { Text(stringResource(R.string.import_models_only)) } },
         )
     }
-    if (state.busy != null && state.phase != Phase.LOADING && state.filamentChoice == null && state.projectOrImport == null) {
+    if (state.chrome.busy != null && state.chrome.phase != Phase.LOADING && state.chrome.filamentChoice == null && state.chrome.projectOrImport == null) {
         AlertDialog(
             onDismissRequest = {},
-            confirmButton = { state.busyCancel?.let { TextButton(onClick = it) { Text(stringResource(R.string.cancel)) } } },
+            confirmButton = { state.chrome.busyCancel?.let { TextButton(onClick = it) { Text(stringResource(R.string.cancel)) } } },
             text = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     CircularProgressIndicator()
-                    Text(state.busy)
+                    Text(state.chrome.busy)
                 }
             },
         )
     }
-    state.error?.let { message ->
+    state.chrome.error?.let { message ->
         AlertDialog(
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
@@ -648,7 +623,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }
-    state.aiConfirm?.let { text ->
+    state.chrome.aiConfirm?.let { text ->
         AlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.ai_confirm_title)) },
@@ -657,7 +632,7 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             dismissButton = { TextButton(onClick = { vm.answerAi(false) }) { Text(stringResource(R.string.ai_deny)) } },
         )
     }
-    state.crashReport?.let { report ->
+    state.chrome.crashReport?.let { report ->
         val context = LocalContext.current
         AlertDialog(
             onDismissRequest = vm::dismissCrashReport,
@@ -676,9 +651,9 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
         )
     }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(state.message) {
-        state.message?.let {
-            val action = state.messageAction
+    LaunchedEffect(state.chrome.message) {
+        state.chrome.message?.let {
+            val action = state.chrome.messageAction
             val result = snackbar.showSnackbar(it, actionLabel = action?.label,
                 duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short)
             vm.dismissMessage()
@@ -752,30 +727,4 @@ private fun FilamentChoiceDialog(choice: FilamentChoice, onAnswer: (mode: String
             }
         }
     }
-}
-
-/**
- * The view cube where the user left it: top right by default; a long press on it picks it up and dragging moves it
- * (kept inside the 3D view, saved as fractions of the free room so it stays put across rotation and resizing).
- */
-@Composable
-private fun ViewCubeSpot(camera: app.orcaandroid.render.Camera, lab: app.orcaandroid.core.LayoutLab, vm: AppViewModel, area: androidx.compose.ui.unit.IntSize) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val cube = with(density) { 96.dp.toPx() }
-    val roomX = (area.width - cube).coerceAtLeast(0f)
-    val roomY = (area.height - cube).coerceAtLeast(0f)
-    fun saved() = if (lab.viewCubeX < 0f || lab.viewCubeY < 0f) Offset(roomX - with(density) { 8.dp.toPx() }, with(density) { 72.dp.toPx() })
-        else Offset(lab.viewCubeX * roomX, lab.viewCubeY * roomY)
-    var live by remember { mutableStateOf<Offset?>(null) }
-    val at = (live ?: saved()).let { Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) }
-    app.orcaandroid.ui.components.ViewCube(camera,
-        Modifier.offset { androidx.compose.ui.unit.IntOffset(at.x.roundToInt(), at.y.roundToInt()) },
-        onMove = { d -> (at + d).let { live = Offset(it.x.coerceIn(0f, roomX), it.y.coerceIn(0f, roomY)) } },
-        onMoveEnd = {
-            live?.let { p ->
-                vm.setLab(lab.copy(viewCubeX = if (roomX > 0f) (p.x / roomX).coerceIn(0f, 1f) else 0f,
-                                   viewCubeY = if (roomY > 0f) (p.y / roomY).coerceIn(0f, 1f) else 0f))
-            }
-            live = null
-        })
 }

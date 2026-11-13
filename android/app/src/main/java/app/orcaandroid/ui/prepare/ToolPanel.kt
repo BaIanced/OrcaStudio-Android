@@ -120,7 +120,7 @@ internal object CanvasBounds {
 /** Options of the active 3D tool, shown as a small floating card. */
 @Composable
 internal fun ToolPanel(state: UiState, vm: AppViewModel) {
-    val tool = state.tool
+    val tool = state.workspace.tool
     if (tool == Tool.None) return
     // The header drags the card around the canvas and folds it to the title, so it can stay out of the way while
     // painting (user 2026-10-19, like the Design window). Kept on screen while dragging.
@@ -225,7 +225,7 @@ private fun MeshEditOptions(state: UiState, vm: AppViewModel, tool: Tool.MeshEdi
         }
     }
     // Stale after undo or another edit (the engine dropped it; the overlay hides it too).
-    val count = sel?.takeIf { it.version == state.scene.meshVersion.toLong() }?.count ?: 0
+    val count = sel?.takeIf { it.version == state.workspace.scene.meshVersion.toLong() }?.count ?: 0
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(stringResource(R.string.mesh_edit_count, count), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.align(Alignment.CenterVertically))
         // All needs a part: the one the last tap selected on.
@@ -312,7 +312,7 @@ internal fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
     Text(stringResource(R.string.paint_hint), style = MaterialTheme.typography.bodySmall)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (tool.kind == "color") {
-            state.filaments.forEachIndexed { i, f ->
+            state.device.filaments.forEachIndexed { i, f ->
                 FilterChip(tool.state == i + 1, { vm.scene.setTool(tool.copy(state = i + 1)) }, label = { Text("${i + 1}") },
                     leadingIcon = { ColorDot(f.color) })
             }
@@ -374,21 +374,21 @@ internal fun PaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
 @Composable
 private fun RemapSection(state: UiState, vm: AppViewModel) {
     var remapOpen by rememberSaveable { mutableStateOf(false) }
-    if (state.filaments.size > 1) {
-        val n = state.filaments.size
+    if (state.device.filaments.size > 1) {
+        val n = state.device.filaments.size
         var remap by remember(n) { mutableStateOf(List(n) { it }) }
         FilterChip(remapOpen, { remapOpen = !remapOpen }, label = { Text(stringResource(R.string.paint_remap)) })
         if (remapOpen) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                state.filaments.forEachIndexed { i, f ->
+                state.device.filaments.forEachIndexed { i, f ->
                     var menu by remember { mutableStateOf(false) }
                     ColorDot(f.color)
                     Text("${i + 1} →", style = MaterialTheme.typography.bodySmall)
                     Box {
                         FilterChip(remap[i] != i, { menu = true }, label = { Text("${remap[i] + 1}") },
-                            leadingIcon = { ColorDot(state.filaments[remap[i]].color) })
+                            leadingIcon = { ColorDot(state.device.filaments[remap[i]].color) })
                         DropdownMenu(menu, { menu = false }) {
-                            state.filaments.forEachIndexed { j, g ->
+                            state.device.filaments.forEachIndexed { j, g ->
                                 DropdownMenuItem(text = { Row(verticalAlignment = Alignment.CenterVertically) { ColorDot(g.color); Text(" ${j + 1}") } },
                                     onClick = { remap = remap.toMutableList().also { it[i] = j }; menu = false })
                             }
@@ -447,33 +447,33 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
     // Filament layers: the surface share of each filament, again shortly after the paint stops changing (a stroke changes
     // it every batch). Side panel = one row per filament; the dock keeps swatches and long-press opens the same actions.
     var coverage by remember { mutableStateOf<FloatArray?>(null) }
-    LaunchedEffect(state.selection, state.scene.paintVersion, state.scene.meshVersion, state.filaments.size) {
+    LaunchedEffect(state.workspace.selection, state.workspace.scene.paintVersion, state.workspace.scene.meshVersion, state.device.filaments.size) {
         delay(300)
         coverage = runCatching { vm.scene.paintCoverage() }.getOrNull()
     }
     // What the plate's paint costs in colour changes and chute flush, before slicing (paint plan step 3).
     var changes by remember { mutableStateOf<ColourChangeEstimate.Estimate?>(null) }
     val flushKeys = listOf("flush_volumes_matrix", "flush_multiplier", "enable_prime_tower", "layer_height", "initial_layer_print_height")
-        .map { state.value(PresetType.PRINT, it) }
-    LaunchedEffect(state.scene, state.activePlate, state.filaments.size, flushKeys) {
+        .map { state.device.value(PresetType.PRINT, it) }
+    LaunchedEffect(state.workspace.scene, state.workspace.activePlate, state.device.filaments.size, flushKeys) {
         delay(300)
         changes = runCatching { withContext(Dispatchers.IO) { paintChangeEstimate(state) } }.getOrNull()
     }
     val total = coverage?.sum()?.takeIf { it > 0f }
     fun percent(i: Int) = total?.let { t -> ((coverage?.getOrNull(i) ?: 0f) / t * 100f).roundToInt() }
-    fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.filaments.size) { if (it == i) j else it }, base = true)
+    fun turnInto(i: Int, j: Int) = vm.scene.paintRemap(List(state.device.filaments.size) { if (it == i) j else it }, base = true)
     // Hide = drawn grey (see the other filaments' areas); lock = no paint, fill, erase or speck clean covers it.
     val layer = { i: Int -> LayerFlags(tool.hidden shr i and 1 != 0, tool.locked shr i and 1 != 0,
         { vm.scene.setTool(tool.copy(hidden = tool.hidden xor (1 shl i))) }, { vm.scene.setTool(tool.copy(locked = tool.locked xor (1 shl i))) }) }
     if (layers) {
         Text(stringResource(R.string.paint_layers), style = MaterialTheme.typography.labelMedium)
-        state.filaments.indices.forEach { i ->
+        state.device.filaments.indices.forEach { i ->
             PaintLayerRow(state, i, tool.state == i + 1 && tool.shape != "pick", percent(i), layer(i), { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) }) { j -> turnInto(i, j) }
         }
     }
     // Swatches: tap = paint with it. Erase and the eyedropper sit at the end of the same row.
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        if (!layers) state.filaments.forEachIndexed { i, f ->
+        if (!layers) state.device.filaments.forEachIndexed { i, f ->
             var menu by remember { mutableStateOf(false) }
             Box {
                 Swatch(tool.state == i + 1 && tool.shape != "pick", "${i + 1}", { vm.scene.setTool(tool.copy(state = i + 1, shape = shape)) },
@@ -489,7 +489,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
             vm.scene.setTool(if (tool.shape == "pick") tool.copy(shape = tool.back) else tool.copy(shape = "pick", back = tool.shape))
         }) { Icon(Icons.Default.Colorize, null, Modifier.size(24.dp)) }
         // The plate's filaments from the connected Bambu printer, without leaving the shop.
-        if (state.connection?.type == HostType.BAMBU || state.connection?.type == HostType.BAMBU_SIGNED)
+        if (state.device.connection?.type == HostType.BAMBU || state.device.connection?.type == HostType.BAMBU_SIGNED)
             Swatch(false, stringResource(R.string.sync_short), vm.presets::syncFilamentsFromPrinter) { Icon(Icons.Default.Sync, null, Modifier.size(24.dp)) }
     }
     changes?.takeIf { it.changes > 0 }?.let {
@@ -522,7 +522,7 @@ internal fun ColorPaintOptions(state: UiState, vm: AppViewModel, tool: Tool.Pain
             GuardRow(state, vm, tool)
         }
         else -> {
-            if (state.filaments.size > 1)
+            if (state.device.filaments.size > 1)
                 FilledTonalButton(onClick = { vm.scene.paintByPart() }) { Text(stringResource(R.string.paint_by_part)) }
             CleanSpecks(vm, tool)
             RemapSection(state, vm)
@@ -550,16 +550,16 @@ private fun Swatch(selected: Boolean, label: String, onClick: () -> Unit, onLong
  * (`PrintConfig.cpp:7710`). Null below two filaments or without a paint mesh.
  */
 private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? {
-    val n = state.filaments.size
-    if (n < 2 || state.scene.paintFile.isEmpty()) return null
-    fun nums(type: PresetType, key: String) = state.value(type, key)?.split(',', ';')?.mapNotNull { it.trim().toDoubleOrNull() }.orEmpty()
+    val n = state.device.filaments.size
+    if (n < 2 || state.workspace.scene.paintFile.isEmpty()) return null
+    fun nums(type: PresetType, key: String) = state.device.value(type, key)?.split(',', ';')?.mapNotNull { it.trim().toDoubleOrNull() }.orEmpty()
     fun num(type: PresetType, key: String, default: Double) = nums(type, key).firstOrNull() ?: default
     val matrix = ColourChangeEstimate.parseFlushMatrix(nums(PresetType.PRINT, "flush_volumes_matrix"), n) ?: Array(n) { DoubleArray(n) }
-    val paint = FloatData.load(state.scene.paintFile, 8)?.data ?: return null
-    val layers = PaintLayers.forPlate(paint, state.scene.objects, state.activePlate,
+    val paint = FloatData.load(state.workspace.scene.paintFile, 8)?.data ?: return null
+    val layers = PaintLayers.forPlate(paint, state.workspace.scene.objects, state.workspace.activePlate,
         num(PresetType.PRINT, "initial_layer_print_height", 0.2).toFloat(), num(PresetType.PRINT, "layer_height", 0.2).toFloat(),
         num(PresetType.PRINT, "top_shell_layers", 0.0).toInt(), num(PresetType.PRINT, "bottom_shell_layers", 0.0).toInt())
-    val tower = state.value(PresetType.PRINT, "enable_prime_tower") == "1"
+    val tower = state.device.value(PresetType.PRINT, "enable_prime_tower") == "1"
     return ColourChangeEstimate.estimate(layers, matrix, num(PresetType.PRINT, "flush_multiplier", 0.3),
         List(n) { num(PresetType.FILAMENT, "filament_density", ColourChangeLine.DENSITY_G_PER_CM3) }, null,
         grabMm3 = num(PresetType.PRINTER, "grab_length", 0.0) * ColourChangeEstimate.GRAB_MM3_PER_MM,
@@ -567,7 +567,7 @@ private fun paintChangeEstimate(state: UiState): ColourChangeEstimate.Estimate? 
 }
 
 /** A filament's name without the printer suffix ("Bambu PLA Basic @BBL A1" -> "Bambu PLA Basic"). */
-private fun filamentLabel(state: UiState, i: Int) = "${i + 1} " + state.filaments[i].preset.substringBefore(" @")
+private fun filamentLabel(state: UiState, i: Int) = "${i + 1} " + state.device.filaments[i].preset.substringBefore(" @")
 
 /** A filament layer's hide / lock state and their toggles. */
 private class LayerFlags(val hidden: Boolean, val locked: Boolean, val toggleHidden: () -> Unit, val toggleLocked: () -> Unit)
@@ -592,7 +592,7 @@ private fun PaintLayerRow(state: UiState, i: Int, selected: Boolean, percent: In
         .then(if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, shape) else Modifier)
         .clickable(onClick = onClick).padding(start = 10.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(state.filaments[i].color, 24) }
+        Box(Modifier.alpha(if (flags.hidden) 0.35f else 1f)) { ColorDot(state.device.filaments[i].color, 24) }
         Column(Modifier.weight(1f).alpha(if (flags.hidden) 0.6f else 1f)) {
             Text(filamentLabel(state, i), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -630,7 +630,7 @@ private fun LayerMenu(state: UiState, i: Int, open: Boolean, percent: Int?, flag
             leadingIcon = { Icon(if (flags.hidden) Icons.Default.Visibility else Icons.Default.VisibilityOff, null) }, onClick = { onDismiss(); flags.toggleHidden() })
         DropdownMenuItem(text = { Text(stringResource(if (flags.locked) R.string.paint_layer_unlock else R.string.paint_layer_lock)) },
             leadingIcon = { Icon(if (flags.locked) Icons.Default.LockOpen else Icons.Default.Lock, null) }, onClick = { onDismiss(); flags.toggleLocked() })
-        state.filaments.forEachIndexed { j, g ->
+        state.device.filaments.forEachIndexed { j, g ->
             if (j != i) DropdownMenuItem(text = { Text(stringResource(R.string.paint_turn_into, j + 1)) }, leadingIcon = { ColorDot(g.color) },
                 onClick = { onDismiss(); onTurnInto(j) })
         }
@@ -673,7 +673,7 @@ private fun RegionEdits(state: UiState, vm: AppViewModel) {
     val on = { kind: String -> region.applied[kind] ?: 0 }
     Text(stringResource(R.string.region_edits), style = MaterialTheme.typography.labelMedium)
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (state.filaments.size > 1) state.filaments.forEachIndexed { i, f ->
+        if (state.device.filaments.size > 1) state.device.filaments.forEachIndexed { i, f ->
             FilterChip(on("color") == i + 1, { vm.scene.paintRegion("color", i + 1) }, label = { Text("${i + 1}") }, leadingIcon = { ColorDot(f.color) })
         }
         FilterChip(on("support") == 1, { vm.scene.paintRegion("support", if (on("support") == 1) 0 else 1) },
@@ -714,7 +714,7 @@ private fun OverColours(vm: AppViewModel, tool: Tool.Paint) =
 /** Guard plane: painting stops at a horizontal plane (drawn like the cut plane); a stroke keeps to the side it starts on. */
 @Composable
 private fun GuardRow(state: UiState, vm: AppViewModel, tool: Tool.Paint) {
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    val inst = state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0) ?: return
     Row(verticalAlignment = Alignment.CenterVertically) {
         val range = inst.min.z..(inst.min.z + inst.size.z)
         FilterChip(tool.guardOn, {
@@ -749,7 +749,7 @@ fun ColorDot(hex: String?, size: Int = 14) {
 
 @Composable
 private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
-    val inst = state.selectedObject?.instances?.getOrNull(state.selection?.instance ?: 0) ?: return
+    val inst = state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0) ?: return
     var keepUpper by remember { mutableStateOf(true) }
     var keepLower by remember { mutableStateOf(true) }
     var flip by remember { mutableStateOf(false) }
@@ -763,7 +763,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
         if (tilt > 0.05f) TextButton(onClick = { vm.scene.setTool(Tool.Cut(tool.z)) }) { Text(stringResource(R.string.cut_level)) }
     }
     Slider(tool.z.coerceIn(lo, hi), { vm.scene.setTool(tool.copy(z = it, placing = true)) }, valueRange = lo..hi,
-        onValueChangeFinished = { (vm.state.value.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
+        onValueChangeFinished = { (vm.state.value.workspace.tool as? Tool.Cut)?.let { vm.scene.setTool(it.copy(placing = false)) } })
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(keepUpper, { keepUpper = it }); Text(stringResource(R.string.keep_upper))
         Checkbox(keepLower, { keepLower = it }); Text(stringResource(R.string.keep_lower))
@@ -781,7 +781,7 @@ private fun CutOptions(state: UiState, vm: AppViewModel, tool: Tool.Cut) {
 
 @Composable
 private fun MeasureOptions(state: UiState, vm: AppViewModel) {
-    val pts = state.measure
+    val pts = state.workspace.measure
     when (pts.size) {
         0 -> Text(stringResource(R.string.measure_hint_first), style = MaterialTheme.typography.bodySmall)
         1 -> {
@@ -791,7 +791,7 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         else -> {
             // The headline is what the two picks mean together: a face gap, a distance square to a face, else point to point.
             val r = measureResult(pts[0], pts[1])
-            val lock = measureLock(pts[0], pts[1], state.measureAxes, state.measureSteps || state.measureShift || state.measureShiftPlaced)
+            val lock = measureLock(pts[0], pts[1], state.workspace.measureAxes, state.workspace.measureSteps || state.workspace.measureShift || state.workspace.measureShiftPlaced)
             val onBed = pts.any { it.kind == "bed" }
             val rings = pts.all { it.kind == "ring" }
             val (head, caption) = when {
@@ -811,15 +811,15 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
+        Checkbox(state.workspace.measureSnap, { vm.scene.setMeasureSnap(it) }); Text(stringResource(R.string.measure_snap_toggle))
         Spacer(Modifier.weight(1f))
         if (pts.isNotEmpty()) TextButton(onClick = { vm.scene.setTool(Tool.Measure) }) { Text(stringResource(R.string.reset)) }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
+        Checkbox(state.workspace.measureAxes, { vm.scene.setMeasureAxes(it) }); Text(stringResource(R.string.measure_axes_toggle))
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Checkbox(state.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
+        Checkbox(state.workspace.measureSteer, { vm.scene.setMeasureSteer(it) }); Text(stringResource(R.string.measure_steer_toggle))
     }
 }
 
@@ -841,7 +841,7 @@ private fun measureKindLabel(m: MeasurePoint) = when (m.kind) {
  */
 @Composable
 private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
-    val profile = state.layerProfile
+    val profile = state.workspace.layerProfile
     var quality by remember { mutableFloatStateOf(0.5f) }
     if (profile == null) {
         Text(stringResource(R.string.loading), style = MaterialTheme.typography.bodySmall)
@@ -858,7 +858,7 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
                 // A tap; a pen's pressure scales the step (floor 10 %, More > Pen).
                 awaitEachGesture {
                     val down = awaitFirstDown()
-                    val pressure = state.pen.scale(down.pressure, down.type == androidx.compose.ui.input.pointer.PointerType.Stylus)
+                    val pressure = state.workspace.pen.scale(down.pressure, down.type == androidx.compose.ui.input.pointer.PointerType.Stylus)
                     if (waitForUpOrCancellation() != null) {
                         val p = down.position
                         val z = (1f - p.y / size.height) * profile.height

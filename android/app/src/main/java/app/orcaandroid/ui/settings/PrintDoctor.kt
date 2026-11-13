@@ -146,7 +146,7 @@ fun PrintDoctorDialog(state: UiState, vm: AppViewModel, onCalibration: (String) 
         return
     }
     // Only fixes that would change something on the current presets.
-    val changes = if (loaded) s.fixes.mapNotNull { f -> val cur = state.value(f.type, f.key); f.newValue(cur)?.let { Triple(f, cur, it) } } else emptyList()
+    val changes = if (loaded) s.fixes.mapNotNull { f -> val cur = state.device.value(f.type, f.key); f.newValue(cur)?.let { Triple(f, cur, it) } } else emptyList()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(s.title)) },

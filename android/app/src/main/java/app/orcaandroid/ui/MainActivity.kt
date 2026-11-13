@@ -62,15 +62,15 @@ class MainActivity : ComponentActivity() {
         // FocusGuardLayout: rotating crashed in Compose's focus code (see the class).
         setContentView(FocusGuardLayout(this).apply { addView(androidx.compose.ui.platform.ComposeView(context).apply { setContent {
             val state by vm.state.collectAsStateWithLifecycle()
-            app.orcaandroid.ui.theme.OrcaTheme(state.themeMode, state.dynamicColor, state.themeSpec) {
-                Immersive(state.lab.fullscreenPortrait)
+            app.orcaandroid.ui.theme.OrcaTheme(state.chrome.themeMode, state.chrome.dynamicColor, state.chrome.themeSpec) {
+                Immersive(state.chrome.fullscreenPortrait)
                 Surface(Modifier.fillMaxSize()) {
                     // Landscape hides the bars: use the camera cutout's strip too instead of leaving it empty
                     // (user, 2026-10-13); the rail goes there, other content keeps clear of it (AppScaffold).
                     // Fullscreen portrait likewise gives the top strip to the 3D view (user, 2026-10-13).
                     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
                         android.content.res.Configuration.ORIENTATION_LANDSCAPE
-                    Box(if (landscape || state.lab.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
+                    Box(if (landscape || state.chrome.fullscreenPortrait) Modifier.windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.ime))
                         else Modifier.safeDrawingPadding()) { AppScaffold(state, vm) }
                 }
             }
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
 
     /** Small state line for debug notes (no account or printer details). */
     private fun noteSnapshot(): String = vm.state.value.let {
-        "screen=${it.screen} tool=${it.tool} plate=${it.activePlate} selection=${it.selection} objects=${it.scene.objects.size}"
+        "screen=${it.chrome.screen} tool=${it.workspace.tool} plate=${it.workspace.activePlate} selection=${it.workspace.selection} objects=${it.workspace.scene.objects.size}"
     }
 
     override fun dispatchGenericMotionEvent(ev: MotionEvent): Boolean {
@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
             }
             ACTION_OPEN_LAST -> lifecycleScope.launch {
                 vm.awaitReady()
-                vm.state.value.recents.firstOrNull { it.isProject }?.let(vm.files::openRecent)
+                vm.state.value.chrome.recents.firstOrNull { it.isProject }?.let(vm.files::openRecent)
             }
         }
 
@@ -182,8 +182,8 @@ class MainActivity : ComponentActivity() {
         if (printers == null && model == null) return
         lifecycleScope.launch {
             if (printers != null) {
-                vm.state.value.let { if (it.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
-                while (vm.state.value.phase == Phase.LOADING || vm.state.value.vendors.isEmpty()) kotlinx.coroutines.delay(200)
+                vm.state.value.let { if (it.chrome.phase == Phase.LOADING) kotlinx.coroutines.delay(500) }
+                while (vm.state.value.chrome.phase == Phase.LOADING || vm.state.value.device.vendors.isEmpty()) kotlinx.coroutines.delay(200)
                 vm.presets.applyPrinterSelection(printers.toSet()).join()
             }
             vm.awaitReady()
@@ -217,12 +217,12 @@ class MainActivity : ComponentActivity() {
         val view = PlateView.active?.get()
         // Selection and camera shortcuts only while the 3D view has focus, so Ctrl+A/C/V keep
         // working in text fields.
-        val onPlate = viewFocused && s.editor == null && s.screen == Screen.PREPARE
-        val onView = viewFocused && s.editor == null && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)
+        val onPlate = viewFocused && s.chrome.editor == null && s.chrome.screen == Screen.PREPARE
+        val onView = viewFocused && s.chrome.editor == null && (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)
         val shift = event.isShiftPressed
         if (android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "shortcut $keyCode ctrl=${event.isCtrlPressed} viewFocused=$viewFocused " +
-                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.screen} editor=${s.editor != null}")
+                "view=${view?.let { System.identityHashCode(it) }} focus=${window.decorView.findFocus()?.javaClass?.simpleName} screen=${s.chrome.screen} editor=${s.chrome.editor != null}")
         if (!event.isCtrlPressed) return super.onKeyShortcut(keyCode, event)
         when {
             keyCode == KeyEvent.KEYCODE_Z && shift -> vm.scene.redo()
@@ -237,7 +237,7 @@ class MainActivity : ComponentActivity() {
             onPlate && keyCode == KeyEvent.KEYCODE_K -> vm.scene.duplicate(1)
             onPlate && keyCode == KeyEvent.KEYCODE_D -> vm.scene.deleteAll()
             // Ctrl+T (transform, user 2026-10-19) = S: corner resizing.
-            onPlate && keyCode == KeyEvent.KEYCODE_T && s.selection != null -> vm.scene.toggleResize()
+            onPlate && keyCode == KeyEvent.KEYCODE_T && s.workspace.selection != null -> vm.scene.toggleResize()
             onView && view != null && keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_7 ->
                 cameraView(view, keyCode - KeyEvent.KEYCODE_0, s)
             else -> return super.onKeyShortcut(keyCode, event)
@@ -247,7 +247,7 @@ class MainActivity : ComponentActivity() {
 
     /** Camera views: 0 default, 1 top, 2 bottom, 3 front, 4 rear, 5 left, 6 right, 7 plate. */
     private fun cameraView(view: PlateView, n: Int, s: UiState) {
-        if (n == 7) view.framePlate(s.activePlate) else view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
+        if (n == 7) view.framePlate(s.workspace.activePlate) else view.camera.preset(listOf(0, 1, 5, 2, 6, 3, 4)[n])
     }
 
     /**
@@ -260,7 +260,7 @@ class MainActivity : ComponentActivity() {
             !onBackPressedDispatcher.hasEnabledCallbacks()) return true
         // Measure: Shift held = 15° steps for the line (watched here, so it counts whatever has focus).
         if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT)
-            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.tool == Tool.Measure)
+            vm.scene.setMeasureShift(event.action == KeyEvent.ACTION_DOWN && vm.state.value.workspace.tool == Tool.Measure)
         if (event.isCtrlPressed && android.util.Log.isLoggable("OrcaInput", android.util.Log.DEBUG))
             android.util.Log.d("OrcaInput", "key ${event.action} ${event.keyCode} meta=${event.metaState} viewFocused=$viewFocused")
         // Android offers Ctrl keys as shortcuts only when normal dispatch leaves them unused, and
@@ -276,11 +276,11 @@ class MainActivity : ComponentActivity() {
     /** Single-key shortcuts of the 3D view, as on the desktop; the view forwards its keys here first. */
     private fun viewKey(keyCode: Int, event: KeyEvent): Boolean {
         val s = vm.state.value
-        if (s.editor != null || event.isCtrlPressed) return false
+        if (s.chrome.editor != null || event.isCtrlPressed) return false
         // Shift+Tab: snap on / off, as in Blender.
-        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
-        if (keyCode == KeyEvent.KEYCODE_TAB && (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
-            vm.setScreen(if (s.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
+        if (keyCode == KeyEvent.KEYCODE_TAB && event.isShiftPressed && s.chrome.screen == Screen.PREPARE) { vm.toggleSnap(); return true }
+        if (keyCode == KeyEvent.KEYCODE_TAB && (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)) {
+            vm.setScreen(if (s.chrome.screen == Screen.PREPARE) Screen.PREVIEW else Screen.PREPARE)
             return true
         }
         val view = PlateView.active?.get()
@@ -290,15 +290,15 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_I -> { view?.camera?.zoom(1.15f); return true }
             KeyEvent.KEYCODE_O -> { view?.camera?.zoom(1 / 1.15f); return true }
             // As in PrusaSlicer (Orca has it only in the View menu): K switches perspective / orthographic.
-            KeyEvent.KEYCODE_K -> if (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW) { vm.setPerspective(!s.perspective); return true }
+            KeyEvent.KEYCODE_K -> if (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW) { vm.setPerspective(!s.workspace.perspective); return true }
             // Numpad 0-7 also pick the camera views: some systems keep Ctrl+digit as their own hotkeys.
             // Only with Num Lock on, so the numpad arrows still nudge.
             in KeyEvent.KEYCODE_NUMPAD_0..KeyEvent.KEYCODE_NUMPAD_7 -> if (view != null && event.isNumLockOn &&
-                (s.screen == Screen.PREPARE || s.screen == Screen.PREVIEW)) {
+                (s.chrome.screen == Screen.PREPARE || s.chrome.screen == Screen.PREVIEW)) {
                 cameraView(view, keyCode - KeyEvent.KEYCODE_NUMPAD_0, s); return true
             }
         }
-        return when (s.screen) {
+        return when (s.chrome.screen) {
             Screen.PREVIEW -> previewKey(keyCode, s)
             Screen.PREPARE -> prepareKey(keyCode, event, s)
             else -> false
@@ -307,13 +307,13 @@ class MainActivity : ComponentActivity() {
 
     /** Single-key shortcuts of the Prepare 3D view, as on the desktop. */
     private fun prepareKey(keyCode: Int, event: KeyEvent, s: UiState): Boolean {
-        val any = s.selectedItems.isNotEmpty()
-        val single = s.selection != null
+        val any = s.workspace.selectedItems.isNotEmpty()
+        val single = s.workspace.selection != null
         val step = if (event.isShiftPressed) 1f else 10f
         fun paint(kind: String, state: Int) = if (single) vm.scene.openPaint(kind, state) else null
         when (keyCode) {
             KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (any) vm.scene.deleteSelected() else return false
-            KeyEvent.KEYCODE_ESCAPE -> if (s.tool != Tool.None || any || s.selectMode) {
+            KeyEvent.KEYCODE_ESCAPE -> if (s.workspace.tool != Tool.None || any || s.workspace.selectMode) {
                 vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false)
             } else return false
             KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = !event.isShiftPressed)
@@ -341,7 +341,7 @@ class MainActivity : ComponentActivity() {
             in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 -> {
                 // Sets the filament of the selected objects.
                 val n = keyCode - KeyEvent.KEYCODE_0
-                if (any && n <= s.filaments.size) vm.scene.setSelectedObjectsSetting("extruder", n.toString()) else return false
+                if (any && n <= s.device.filaments.size) vm.scene.setSelectedObjectsSetting("extruder", n.toString()) else return false
             }
             else -> return false
         }
@@ -350,12 +350,12 @@ class MainActivity : ComponentActivity() {
 
     /** Preview: up / down step the layer, left / right the moves in it, Home / End the moves' ends. */
     private fun previewKey(keyCode: Int, s: UiState): Boolean {
-        val layers = s.shownResult?.layers ?: return false
+        val layers = s.slicing.shownResult?.layers ?: return false
         if (layers.isEmpty()) return false
-        val p = s.preview
+        val p = s.slicing.preview
         val last = layers.lastIndex
         val hi = p.layerHigh.coerceIn(0, last)
-        val moves = (layers.getOrNull(hi + 1)?.extrusion ?: s.shownResult!!.extrusionCount) - layers[hi].extrusion
+        val moves = (layers.getOrNull(hi + 1)?.extrusion ?: s.slicing.shownResult!!.extrusionCount) - layers[hi].extrusion
         val move = p.moveEnd ?: moves
         when (keyCode) {
             KeyEvent.KEYCODE_DPAD_UP -> vm.slicing.updatePreview { it.copy(layerHigh = (hi + 1).coerceAtMost(last), moveEnd = null) }

@@ -35,47 +35,47 @@ const val SCULPT_MAX_MM = 30f
 /** Printer fit check (Assemble A2): the first copy of [obj] (-1: all objects) that doesn't fit, shown on the 3D view (Notices). */
 fun Store.checkFit(obj: Int = -1) = launch {
     val issue = runCatching { engine.fitCheck(obj) }.getOrNull()?.firstOrNull()
-    update { it.copy(fitIssue = issue) }
+    update { it.copy(slicing = it.slicing.copy(fitIssue = issue)) }
 }
 
 class SceneController(private val store: Store, private val presets: PresetController) {
     private val engine = store.engine
     private val resources = store.resources
 
-    private val activePlate get() = store.value.activePlate
-    private val selection get() = store.value.selection
-    private val selectedItems get() = store.value.selectedItems.map { it.obj to it.instance }
+    private val activePlate get() = store.value.workspace.activePlate
+    private val selection get() = store.value.workspace.selection
+    private val selectedItems get() = store.value.workspace.selectedItems.map { it.obj to it.instance }
 
     // --- Selection -------------------------------------------------------------------------------------
 
-    fun selectPlate(plate: Int) = store.update { it.copy(activePlate = plate) }
+    fun selectPlate(plate: Int) = store.update { it.copy(workspace = it.workspace.copy(activePlate = plate)) }
 
     fun select(selection: Selection?) = store.update {
-        it.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.tool)
+        it.copy(workspace = it.workspace.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.workspace.tool))
     }
 
     /** Adds every copy of the object to the selection, or removes them (the object list in select mode). */
     fun toggleObject(obj: Int) = store.update { st ->
-        val copies = st.scene.objects.getOrNull(obj)?.instances?.map { Selection(obj, it.index) } ?: return@update st
+        val copies = st.workspace.scene.objects.getOrNull(obj)?.instances?.map { Selection(obj, it.index) } ?: return@update st
         st.toggled(copies)
     }
 
     /** Selects every copy on the active plate. */
     fun selectAll() = store.update { st ->
-        st.withSelected(st.scene.objects.flatMap { o -> o.instances.filter { it.plate == st.activePlate }.map { Selection(o.index, it.index) } })
+        st.withSelected(st.workspace.scene.objects.flatMap { o -> o.instances.filter { it.plate == st.workspace.activePlate }.map { Selection(o.index, it.index) } })
     }
 
-    fun setSelectMode(on: Boolean) = store.update { it.copy(selectMode = on) }
+    fun setSelectMode(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(selectMode = on)) }
 
     /** Adds the copies to the selection, or removes them (the desktop's Shift / Alt rectangle). */
     fun changeSelection(items: List<Selection>, remove: Boolean) = store.update { st ->
-        val current = st.selectedItems.map { it.copy(volume = -1) }
+        val current = st.workspace.selectedItems.map { it.copy(volume = -1) }
         st.withSelected(if (remove) current - items.toSet() else current + items.filterNot { it in current })
     }
 
     /** Selects every copy on every plate (Ctrl+Shift+A). */
     fun selectAllPlates() = store.update { st ->
-        st.withSelected(st.scene.objects.flatMap { o -> o.instances.map { Selection(o.index, it.index) } })
+        st.withSelected(st.workspace.scene.objects.flatMap { o -> o.instances.map { Selection(o.index, it.index) } })
     }
 
     /** Copies kept by Ctrl+C for Ctrl+V. */
@@ -85,7 +85,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Ctrl+V: a copy of each copied object, placed next to the others (like Duplicate). */
     fun paste() {
-        val scene = store.value.scene
+        val scene = store.value.workspace.scene
         val items = clipboard.filter { (o, i) -> scene.objects.getOrNull(o)?.instances?.getOrNull(i) != null }.ifEmpty { return }
         store.sceneOp { engine.duplicate(items, 1) }
     }
@@ -96,22 +96,22 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Page up / down: rotates the selected copy about Z by [degrees]. */
     fun rotateSelected(degrees: Float) {
         val sel = selection ?: return
-        val inst = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
+        val inst = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, rotation = inst.rotation.copy(z = inst.rotation.z + degrees)) }
     }
 
     /** "-" key: removes the selected object's last copy (never the only one). */
     fun removeCopy() {
         val sel = selection ?: return
-        val copies = store.value.scene.objects.getOrNull(sel.obj)?.instances?.size ?: return
+        val copies = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.size ?: return
         if (copies > 1) store.sceneOp { engine.deleteInstance(sel.obj, copies - 1) }
     }
 
     /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
     fun scaleBrush(factor: Float) {
-        (store.value.tool as? Tool.Sculpt)?.let { t -> store.update { it.copy(tool = t.copy(radius = (t.radius * factor).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM))) }; return }
-        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
-        store.update { it.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f))) }
+        (store.value.workspace.tool as? Tool.Sculpt)?.let { t -> store.update { it.copy(workspace = it.workspace.copy(tool = t.copy(radius = (t.radius * factor).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM)))) }; return }
+        val tool = (store.value.workspace.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
+        store.update { it.copy(workspace = it.workspace.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f)))) }
     }
 
     // --- Adding objects --------------------------------------------------------------------------------
@@ -139,7 +139,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** The selected copies as footprints on the plate (one per copy, volumes folded into their copy). */
     private fun selectedFootprints(): List<Triple<Int, Int, Instance>> {
-        val scene = store.value.scene
+        val scene = store.value.workspace.scene
         val out = ArrayList<Triple<Int, Int, Instance>>()
         for ((o, i) in selectedItems.distinct()) {
             val inst = scene.objects.getOrNull(o)?.instances?.getOrNull(i) ?: continue
@@ -151,7 +151,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Prepare "Center": the selection as one group, on the middle of its plate (objects may overlap afterwards). */
     fun centerSelected() {
         val items = selectedFootprints().ifEmpty { return }
-        val scene = store.value.scene
+        val scene = store.value.workspace.scene
         val plate = scene.plates.getOrNull(items.first().third.plate.takeIf { it >= 0 } ?: activePlate) ?: return
         val (dx, dy) = AlignMath.center(items.map { Footprint.of(it.third) },
             plate.originX + scene.plateWidth / 2, plate.originY + scene.plateDepth / 2)
@@ -164,7 +164,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (items.size < 2) return
         val shifts = AlignMath.align(items.map { Footprint.of(it.third) }, kind)
         store.sceneOp {
-            var scene = store.value.scene
+            var scene = store.value.workspace.scene
             items.zip(shifts).forEach { (item, d) ->
                 if (d.first != 0f || d.second != 0f) scene = engine.moveItems(listOf(item.first to item.second), d.first, d.second)
             }
@@ -188,15 +188,15 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Deletes the selected part, else the selected copy, else the whole object; or all selected copies. */
     fun deleteSelected() {
-        val multi = store.value.multiSelection
+        val multi = store.value.workspace.multiSelection
         if (multi.isNotEmpty()) {
-            store.update { it.copy(multiSelection = emptyList(), tool = Tool.None) }
+            store.update { it.copy(workspace = it.workspace.copy(multiSelection = emptyList(), tool = Tool.None)) }
             store.sceneOp { engine.deleteItems(multi.map { it.obj to it.instance }) }
             return
         }
         val sel = selection ?: return
-        val copies = store.value.scene.objects.getOrNull(sel.obj)?.instances?.size ?: 1
-        store.update { it.copy(selection = null, tool = Tool.None) }
+        val copies = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.size ?: 1
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, tool = Tool.None)) }
         store.sceneOp {
             when {
                 sel.volume >= 0 -> engine.deleteVolume(sel.obj, sel.volume)
@@ -208,15 +208,15 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Deletes every object, as one undo step. */
     fun deleteAll(): Job? {
-        val all = store.value.scene.objects.flatMap { o -> o.instances.map { o.index to it.index } }.ifEmpty { return null }
-        store.update { it.copy(selection = null, multiSelection = emptyList(), tool = Tool.None) }
+        val all = store.value.workspace.scene.objects.flatMap { o -> o.instances.map { o.index to it.index } }.ifEmpty { return null }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, multiSelection = emptyList(), tool = Tool.None)) }
         return store.sceneOp { engine.deleteItems(all) }
     }
 
     /** Opens the cut tool at the middle height of the selected copy. */
     fun startCut() {
         val sel = selection ?: return
-        val inst = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
+        val inst = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
         setTool(Tool.Cut(inst?.let { it.min.z + it.size.z / 2 } ?: 5f))
     }
 
@@ -230,26 +230,26 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Applies the fit the notice offered; the object list changed since: checks again instead. */
     fun fitToPrinter(issue: FitIssue) {
-        store.update { it.copy(fitIssue = null) }
-        if (store.value.scene.objects.getOrNull(issue.obj)?.name != issue.name) { store.checkFit(); return }
+        store.update { it.copy(slicing = it.slicing.copy(fitIssue = null)) }
+        if (store.value.workspace.scene.objects.getOrNull(issue.obj)?.name != issue.name) { store.checkFit(); return }
         store.sceneOp(store.str(R.string.orienting)) { engine.fitToPrinter(issue.obj) }
     }
 
     fun split(toParts: Boolean) = selection?.let { sel ->
-        store.update { it.copy(selection = if (toParts) sel else null) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = if (toParts) sel else null)) }
         store.sceneOp { engine.split(sel.obj, toParts) }
     }
 
     /** Desktop "Assemble": the selected copies become the parts of one object, each staying in place. */
     fun assemble() {
         val items = selectedItems.takeIf { it.size >= 2 } ?: return
-        store.update { it.copy(selection = null, multiSelection = emptyList(), selectMode = false) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, multiSelection = emptyList(), selectMode = false)) }
         store.sceneOp { engine.assemble(items) }
     }
 
     /** Union / difference / intersection of two parts of an object (desktop Mesh Boolean gizmo). */
     fun meshBoolean(obj: Int, src: Int, tool: Int, op: String, keepTool: Boolean) {
-        store.update { it.copy(selection = Selection(obj)) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = Selection(obj))) }
         store.sceneOp { engine.meshBoolean(obj, src, tool, op, keepTool) }
     }
 
@@ -266,7 +266,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     suspend fun meshReport(thickness: Float): String? = selection?.let { sel ->
         val r = store.engine.checkMesh(sel.obj, sel.instance, thickness)
         lastCheck = sel to app.orcaandroid.core.MeshReport.markers(r)
-        checkBase = store.value.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
+        checkBase = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance)
         app.orcaandroid.core.MeshReport.text(r)
     }
 
@@ -297,13 +297,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun cut(t: Tool.Cut, keepUpper: Boolean, keepLower: Boolean, flip: Boolean, floatUpper: Boolean) {
         val sel = selection ?: return
-        store.update { it.copy(selection = null, tool = Tool.None) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, tool = Tool.None)) }
         store.sceneOp(store.str(R.string.cutting)) { engine.cut(sel.obj, sel.instance, t.z, keepUpper, keepLower, flip, floatUpper, t.rot, t.dx, t.dy) }
     }
 
     /** Adds a modifier, blocker, enforcer or negative volume sized to the selected object. */
     fun addVolume(type: VolumeType, shape: String) = selection?.let { sel ->
-        val size = store.value.selectedObject?.instances?.firstOrNull()?.size ?: Vec3(10f, 10f, 10f)
+        val size = store.value.workspace.selectedObject?.instances?.firstOrNull()?.size ?: Vec3(10f, 10f, 10f)
         val s = maxOf(5f, minOf(size.x, size.y, size.z) / 2)
         store.sceneOp { engine.addVolume(sel.obj, type, shape, Vec3(s, s, s)) }
     }
@@ -313,12 +313,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** The same setting on every selected object (e.g. the filament of a multi-selection). */
     fun setSelectedObjectsSetting(key: String, value: String?) {
-        val objs = store.value.selectedItems.map { it.obj }.distinct().ifEmpty { return }
+        val objs = store.value.workspace.selectedItems.map { it.obj }.distinct().ifEmpty { return }
         store.sceneOp { engine.setObjectsSetting(objs, key, value) }
     }
 
     fun setRangeSetting(obj: Int, range: Int, key: String, value: String?) = store.sceneOp {
-        val ranges = store.value.scene.objects[obj].layerRanges.mapIndexed { i, r ->
+        val ranges = store.value.workspace.scene.objects[obj].layerRanges.mapIndexed { i, r ->
             if (i != range) r else r.copy(settings = if (value == null) r.settings - key else r.settings + (key to value))
         }
         engine.setLayerRanges(obj, ranges)
@@ -330,17 +330,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun addPlate() = store.launch {
         store.applyScene(engine.addPlate())
-        store.update { it.copy(activePlate = it.scene.plates.lastIndex) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = it.workspace.scene.plates.lastIndex)) }
     }
 
     fun deletePlate(plate: Int) = deletePlates(listOf(plate))
 
     /** Deletes the plates as one undo step (their objects move off the grid); the active plate stays the same plate. */
     fun deletePlates(plates: Collection<Int>) = store.launch {
-        val active = store.state.value.activePlate
+        val active = store.state.value.workspace.activePlate
         val scene = engine.deletePlates(plates.toList())
         store.applyScene(scene)
-        store.update { it.copy(activePlate = (active - plates.count { p -> p < active }).coerceIn(0, scene.plates.lastIndex)) }
+        store.update { it.copy(workspace = it.workspace.copy(activePlate = (active - plates.count { p -> p < active }).coerceIn(0, scene.plates.lastIndex))) }
         lastDelete = scene.plates.size to active
     }
 
@@ -352,9 +352,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
      */
     fun setPlateBedType(plate: Int, bedType: String) = store.sceneOp {
         val s = store.value
-        val old = s.setup?.defaultBedType.orEmpty()
+        val old = s.device.setup?.defaultBedType.orEmpty()
         if (bedType.isNotEmpty() && old.isNotEmpty() && bedType != old)
-            s.scene.plates.filter { it.index != plate && it.bedType.isEmpty() }.forEach { engine.setPlateBedType(it.index, old) }
+            s.workspace.scene.plates.filter { it.index != plate && it.bedType.isEmpty() }.forEach { engine.setPlateBedType(it.index, old) }
         if (bedType.isNotEmpty()) presets.rememberBedType(bedType)
         engine.setPlateBedType(plate, bedType)
     }
@@ -364,17 +364,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun undo() = store.launch {
         // The picked region's applied marks would no longer match the model.
         regionPick.value = null
-        val before = store.value.scene.plates.size
+        val before = store.value.workspace.scene.plates.size
         val scene = engine.undo()
         store.applyScene(scene)
         lastDelete?.let { (after, active) ->
             if (before == after && scene.plates.size > after) {
-                store.update { it.copy(activePlate = active.coerceIn(0, scene.plates.lastIndex)) }
+                store.update { it.copy(workspace = it.workspace.copy(activePlate = active.coerceIn(0, scene.plates.lastIndex))) }
                 lastDelete = null
             }
         }
-        if (store.value.calibration != null && !scene.calibrationActive)
-            store.update { it.copy(calibration = null, projectName = it.nameBeforeCalibration) }
+        if (store.value.workspace.calibration != null && !scene.calibrationActive)
+            store.update { it.copy(workspace = it.workspace.copy(calibration = null, projectName = it.workspace.nameBeforeCalibration)) }
     }
     fun redo() = store.sceneOp { engine.redo() }
 
@@ -394,9 +394,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun openPaint(kind: String, state: Int) = setTool(PaintMode.reopened(lastPaint[kind], kind, state))
 
     fun setTool(tool: Tool) = store.launch {
-        val old = store.value.tool as? Tool.Paint
+        val old = store.value.workspace.tool as? Tool.Paint
         old?.let { lastPaint[it.kind] = it }
-        store.update { it.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.measure) }
+        store.update { it.copy(workspace = it.workspace.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.workspace.measure)) }
         if (tool !is Tool.Paint || tool.shape != "regions" || tool.kind != old?.kind) regionPick.value = null
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
             && (tool.edgeAngle != old.edgeAngle || tool.overColours != old.overColours)) refillLast()
@@ -412,20 +412,20 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun onViewTap(origin: Vec3, dir: Vec3, additive: Boolean = false, part: Boolean = false, section: FloatArray? = null, emptyPlate: Int? = null,
                   pxSize: ((Vec3) -> Float)? = null, around: List<Pair<Vec3, Vec3>> = emptyList(), bed: Vec3? = null) = store.launch {
         // Measure: Alt held (or Snap off) takes the bare hit.
-        val hit = if ((store.value.tool == Tool.Measure || store.value.tool is Tool.Cut) && pxSize != null)
-            measurePick(origin, dir, section, pxSize, around, store.value.measureSnap && !part)
+        val hit = if ((store.value.workspace.tool == Tool.Measure || store.value.workspace.tool is Tool.Cut) && pxSize != null)
+            measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap && !part)
             else pick(origin, dir, section)
-        if (hit == null && emptyPlate != null && store.value.tool == Tool.None) {
+        if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None) {
             selectPlate(emptyPlate)
             return@launch
         }
-        when (store.value.tool) {
+        when (store.value.workspace.tool) {
             Tool.LayOnFace -> if (hit != null) {
                 store.applyScene(engine.layOnFace(hit.obj, hit.instance, hit.normal))
-                store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).copy(tool = Tool.None) }
+                store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))).run { copy(workspace = workspace.copy(tool = Tool.None)) } }
             }
             Tool.Measure -> (hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) })?.let { m ->
-                store.update { st -> st.copy(measure = (st.measure + m).takeLast(2), measureShiftPlaced = st.measureShift) }
+                store.update { st -> st.copy(workspace = st.workspace.copy(measure = (st.workspace.measure + m).takeLast(2), measureShiftPlaced = st.workspace.measureShift)) }
             }
             // Cut: a tap on the cut copy moves the plane through the snapped spot (a hole's rim: its centre), keeping its tilt.
             is Tool.Cut -> if (hit != null && !additive && !part && hit.obj == selection?.obj && hit.instance == selection?.instance) cutThrough(hit, false)
@@ -434,7 +434,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                 when {
                     // Alt+click: the part under the pointer, as on the desktop.
                     part && hit != null -> st.withSelected(listOf(Selection(hit.obj, hit.instance, hit.volume)))
-                    additive || st.selectMode -> if (hit == null) st else st.toggled(listOf(Selection(hit.obj, hit.instance)))
+                    additive || st.workspace.selectMode -> if (hit == null) st else st.toggled(listOf(Selection(hit.obj, hit.instance)))
                     else -> st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))
                 }
             }
@@ -445,7 +445,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun checkDragStart(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Boolean) -> Unit) {
         store.launch {
             val hit = pick(origin, dir, section)
-            result(hit != null && store.value.selectedItems.any { it.obj == hit.obj && it.instance == hit.instance })
+            result(hit != null && store.value.workspace.selectedItems.any { it.obj == hit.obj && it.instance == hit.instance })
         }
     }
 
@@ -461,7 +461,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun copyAt(origin: Vec3, dir: Vec3, section: FloatArray?, result: (Pair<Int, Int>?, Vec3, Vec3) -> Unit) {
         store.launch {
             val hit = pick(origin, dir, section)
-            val copy = hit?.let { store.value.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
+            val copy = hit?.let { store.value.workspace.scene.objects.getOrNull(it.obj)?.instances?.getOrNull(it.instance) }
             if (hit == null || copy == null) result(null, Vec3.ZERO, Vec3.ZERO)
             else result(hit.obj to hit.instance, copy.min, copy.min + copy.size)
         }
@@ -469,12 +469,12 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Right click / long press on the 3D view: selects what lies there (or nothing), then opens the menu at (x, y). */
     fun openContextMenu(origin: Vec3, dir: Vec3, x: Float, y: Float, section: FloatArray? = null) = store.launch {
-        if (store.value.screen != Screen.PREPARE) return@launch
+        if (store.value.chrome.screen != Screen.PREPARE) return@launch
         val hit = pick(origin, dir, section)
         store.update { st ->
             // On a copy of the multi-selection the menu acts on all of them, as on the desktop.
-            val inMulti = hit != null && st.multiSelection.any { it.obj == hit.obj && it.instance == hit.instance }
-            (if (inMulti) st else st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))).copy(contextMenu = x to y)
+            val inMulti = hit != null && st.workspace.multiSelection.any { it.obj == hit.obj && it.instance == hit.instance }
+            (if (inMulti) st else st.withSelected(listOfNotNull(hit?.let { Selection(it.obj, it.instance) }))).run { copy(workspace = workspace.copy(contextMenu = x to y)) }
         }
     }
 
@@ -490,8 +490,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Puts the cut plane through [hit] ([align]: parallel to its face first): by its height, or an upright plane by its sideways shift. */
     private fun cutThrough(hit: PickHit, align: Boolean) {
-        val t = store.value.tool as? Tool.Cut ?: return
-        val inst = store.value.scene.objects.getOrNull(hit.obj)?.instances?.getOrNull(hit.instance) ?: return
+        val t = store.value.workspace.tool as? Tool.Cut ?: return
+        val inst = store.value.workspace.scene.objects.getOrNull(hit.obj)?.instances?.getOrNull(hit.instance) ?: return
         val rot = if (align) CutPlane.rotFacing(hit.normal) else t.rot
         val p = if (align) hit.point else MeasurePoint.of(hit).point
         val cx = inst.min.x + inst.size.x / 2
@@ -499,31 +499,31 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val z = CutPlane.heightThrough(cx + t.dx, cy + t.dy, rot, p)
         val next = if (z != null) t.copy(z = z, rot = rot, placing = false)
             else CutPlane.shiftThrough(cx, cy, rot, p).let { (dx, dy) -> t.copy(z = inst.min.z + inst.size.z / 2, rot = rot, placing = false, dx = dx, dy = dy) }
-        store.update { it.copy(tool = next) }
+        store.update { it.copy(workspace = it.workspace.copy(tool = next)) }
     }
 
-    fun closeContextMenu() = store.update { it.copy(contextMenu = null) }
+    fun closeContextMenu() = store.update { it.copy(workspace = it.workspace.copy(contextMenu = null)) }
 
-    fun setMeasureSnap(on: Boolean) = store.update { it.copy(measureSnap = on) }
-    fun setMeasureAxes(on: Boolean) = store.update { it.copy(measureAxes = on) }
-    fun setMeasureSteps(on: Boolean) = store.update { it.copy(measureSteps = on) }
-    fun setMeasureSteer(on: Boolean) = store.update { it.copy(measureSteer = on) }
-    fun setOverhangView(on: Boolean, drag: Float? = null) = store.update { it.copy(overhangView = on, overhangDrag = drag) }
-    fun setMeasureShift(held: Boolean) { if (store.value.measureShift != held) store.update { it.copy(measureShift = held) } }
+    fun setMeasureSnap(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSnap = on)) }
+    fun setMeasureAxes(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureAxes = on)) }
+    fun setMeasureSteps(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSteps = on)) }
+    fun setMeasureSteer(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSteer = on)) }
+    fun setOverhangView(on: Boolean, drag: Float? = null) = store.update { it.copy(workspace = it.workspace.copy(overhangView = on, overhangDrag = drag)) }
+    fun setMeasureShift(held: Boolean) { if (store.value.workspace.measureShift != held) store.update { it.copy(workspace = it.workspace.copy(measureShift = held)) } }
 
     /** Turns corner resizing of the lone selected copy on, or off when it is already on. */
     fun toggleResize() = store.update {
-        val one = it.selectedItems.singleOrNull()
-        it.copy(resizeFor = if (it.resizeFor != null && it.resizeFor == one) null else one, rotateFor = null)
+        val one = it.workspace.selectedItems.singleOrNull()
+        it.copy(workspace = it.workspace.copy(resizeFor = if (it.workspace.resizeFor != null && it.workspace.resizeFor == one) null else one, rotateFor = null))
     }
 
     /** Turns the rotate gizmo on the lone selected copy on, or off when it is already on (resizing goes off). */
     fun toggleRotate() = store.update {
-        val one = it.selectedItems.singleOrNull()
-        it.copy(rotateFor = if (it.rotateFor != null && it.rotateFor == one) null else one, resizeFor = null)
+        val one = it.workspace.selectedItems.singleOrNull()
+        it.copy(workspace = it.workspace.copy(rotateFor = if (it.workspace.rotateFor != null && it.workspace.rotateFor == one) null else one, resizeFor = null))
     }
 
-    fun openAddDialog(name: String?) = store.update { it.copy(addDialog = name) }
+    fun openAddDialog(name: String?) = store.update { it.copy(workspace = it.workspace.copy(addDialog = name)) }
 
     /** The first hit along the ray that the section view [section] leaves visible. */
     private suspend fun pick(origin: Vec3, dir: Vec3, section: FloatArray?, snap: Double = 0.0, release: Double = 0.0, stick: Vec3? = null,
@@ -575,22 +575,21 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val reselect = phase == 2 && measureGrabbed
         if (phase == 2 || phase == 3) measureGrabbed = false
         store.launch {
-            if (phase == 0 && grab != null) store.update { st -> st.copy(measure = st.measure.filterIndexed { i, _ -> i != grab }) }
-            if (phase == 3) { store.update { it.copy(loupe = null, measureActive = null) }; return@launch }
-            val hit = measurePick(origin, dir, section, pxSize, around, store.value.measureSnap, sticky = true)
+            if (phase == 0 && grab != null) store.update { st -> st.copy(workspace = st.workspace.copy(measure = st.workspace.measure.filterIndexed { i, _ -> i != grab })) }
+            if (phase == 3) { store.update { it.copy(workspace = it.workspace.copy(loupe = null, measureActive = null)) }; return@launch }
+            val hit = measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap, sticky = true)
             if (app.orcaandroid.BuildConfig.DEBUG)
                 android.util.Log.d("SNAPDBG", "phase $phase snap ${hit?.snap} feature ${hit?.feature?.kind} d ${hit?.feature?.diameter} at ${hit?.point}")
             if (phase == 2) {
                 val m = hit?.let { MeasurePoint.of(it) } ?: bed?.let { MeasurePoint.bed(it) }
                 store.update { st ->
-                    val placed = if (m != null) (st.measure + m).takeLast(2) else st.measure
-                    st.copy(loupe = null, measure = placed, measureActive = if (reselect && m != null) placed.lastIndex else null,
-                        measureShiftPlaced = if (m != null) st.measureShift else st.measureShiftPlaced)
+                    val placed = if (m != null) (st.workspace.measure + m).takeLast(2) else st.workspace.measure
+                    st.copy(workspace = st.workspace.copy(loupe = null, measure = placed, measureActive = if (reselect && m != null) placed.lastIndex else null, measureShiftPlaced = if (m != null) st.workspace.measureShift else st.workspace.measureShiftPlaced))
                 }
             } else if (loupeActive) {
                 val l = if (hit == null && bed != null) Loupe(x, y, bed, null, app.orcaandroid.core.SnapFeature("bed", FloatArray(0), null), MeasurePoint.bed(bed))
                     else Loupe(x, y, hit?.point, hit?.snap, hit?.feature, hit?.let { MeasurePoint.of(it) })
-                store.update { it.copy(loupe = l) }
+                store.update { it.copy(workspace = it.workspace.copy(loupe = l)) }
             }
         }
     }
@@ -599,7 +598,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private var measureGrabbed = false
 
     /** Measure: selects placed point [index] (null = none; the point stays where it is). */
-    fun measureSelect(index: Int?) = store.update { it.copy(measureActive = index?.takeIf { i -> i in it.measure.indices }) }
+    fun measureSelect(index: Int?) = store.update { it.copy(workspace = it.workspace.copy(measureActive = index?.takeIf { i -> i in it.workspace.measure.indices })) }
 
     private val paintLock = Mutex()
     private class PaintSample(val origin: Vec3, val dir: Vec3, val camera: Vec3, val newStroke: Boolean, val section: FloatArray?, val pressure: Float)
@@ -618,7 +617,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * (user r314).
      */
     fun paintAt(origin: Vec3, dir: Vec3, camera: Vec3, newStroke: Boolean, section: FloatArray? = null, pressure: Float = 1f) {
-        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
+        val tool = (store.value.workspace.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         if (newStroke) paintDown = true
         synchronized(pendingPaint) { pendingPaint.addLast(PaintSample(origin, dir, camera, newStroke, section, pressure)) }
         if (paintLock.isLocked) return
@@ -639,7 +638,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         val hit = pick(last.origin, last.dir, last.section) ?: continue
                         val (picked, base) = engine.paintStateAt(hit, tool.kind)
                         val s = if (picked == 0 && tool.kind == "color") base.coerceAtLeast(1) else picked
-                        (store.value.tool as? Tool.Paint)?.let { t -> store.update { it.copy(tool = t.copy(state = s, shape = t.back)) } }
+                        (store.value.workspace.tool as? Tool.Paint)?.let { t -> store.update { it.copy(workspace = it.workspace.copy(tool = t.copy(state = s, shape = t.back))) } }
                         synchronized(pendingPaint) { pendingPaint.clear() }
                         strokePending = false
                         continue
@@ -708,7 +707,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     paintLock.withLock {
                         // Not live (another region edit came after it): the region it showed no longer matches the angle.
                         val f = lastFill ?: run { regionPick.value = null; return@withLock }
-                        val tool = (store.value.tool as? Tool.Paint)?.takeIf { it.shape == "fill" || it.shape == "regions" } ?: return@withLock
+                        val tool = (store.value.workspace.tool as? Tool.Paint)?.takeIf { it.shape == "fill" || it.shape == "regions" } ?: return@withLock
                         runCatching { fill(tool, f.first, f.second, f.third, newStroke = false, refill = true) }.getOrNull()?.let { store.applyScene(it) }
                         regionPick.value = regionPick.value?.let { RegionPick(it.hit, it.camera, it.section, tool.edgeAngle, it.applied) }
                     }
@@ -728,7 +727,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun paintRegion(kind: String, state: Int) = store.launch {
         paintLock.withLock {
             val r = regionPick.value ?: return@withLock
-            val tool = store.value.tool as? Tool.Paint ?: return@withLock
+            val tool = store.value.workspace.tool as? Tool.Paint ?: return@withLock
             runCatching {
                 engine.paint(listOf(r.hit), r.camera, tool.radius, kind, state, true, r.section, listOf(false), r.edgeAngle, "fill", tool.height, 0f,
                     tool.guardZ.takeIf { tool.guardOn }, true, if (kind == "color") tool.locked else 0)
@@ -763,14 +762,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** A paint stroke ended: the ring goes until the next hover or stroke. */
     fun paintEnd() {
-        if (store.value.tool !is Tool.Paint) return
+        if (store.value.workspace.tool !is Tool.Paint) return
         paintDown = false
         sculptCursor.value = null
     }
 
     /** A mouse or pen hovers along this ray (null: it left the view): the paint brush ring follows the surface under it. */
     fun paintHover(ray: Pair<Vec3, Vec3>?, section: FloatArray?) {
-        if (!brushRing(store.value.tool)) return
+        if (!brushRing(store.value.workspace.tool)) return
         synchronized(pendingPaint) {
             paintHoverRay = ray?.let { it to section }
             if (ray == null) { sculptCursor.value = null; return }
@@ -780,7 +779,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     // The job ends (and a new ray starts the next) inside the lock, so no ray waits unprobed.
                     val (r, sec) = synchronized(pendingPaint) { paintHoverRay.also { paintHoverRay = null; if (it == null) paintHoverJob = null } } ?: break
                     val hit = runCatching { pick(r.first, r.second, sec) }.getOrNull()
-                    if (!paintDown && brushRing(store.value.tool)) sculptCursor.value = hit?.let { it.point to it.normal }
+                    if (!paintDown && brushRing(store.value.workspace.tool)) sculptCursor.value = hit?.let { it.point to it.normal }
                 }
             }
         }
@@ -805,13 +804,13 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (count == 0) return null
         fun v(k: String) = o.getJSONArray(k).let { Vec3(it.getDouble(0).toFloat(), it.getDouble(1).toFloat(), it.getDouble(2).toFloat()) }
         fun f(k: String) = o.optJSONArray(k)?.let { a -> FloatArray(a.length()) { a.getDouble(it).toFloat() } } ?: FloatArray(0)
-        return MeshEditSel(target, count, v("centroid"), v("normal"), f("edges"), f("verts"), store.value.scene.meshVersion.toLong())
+        return MeshEditSel(target, count, v("centroid"), v("normal"), f("edges"), f("verts"), store.value.workspace.scene.meshVersion.toLong())
     }
 
-    private fun meshEditAngle() = (store.value.tool as? Tool.MeshEdit)?.let { if (it.triangles) 0f else 30f } ?: 30f
+    private fun meshEditAngle() = (store.value.workspace.tool as? Tool.MeshEdit)?.let { if (it.triangles) 0f else 30f } ?: 30f
 
     /** The current selection, dropped when the scene mesh changed since (undo, another edit): the engine dropped it too. */
-    private fun liveMeshEditSel() = meshEditSel.value?.takeIf { it.version == store.value.scene.meshVersion.toLong() }
+    private fun liveMeshEditSel() = meshEditSel.value?.takeIf { it.version == store.value.workspace.scene.meshVersion.toLong() }
         ?: null.also { meshEditSel.value = null }
 
     /**
@@ -819,7 +818,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
      * of 24 dp at a point (vertex picks snap to a feature corner that close). A miss keeps the selection.
      */
     fun meshEditTap(origin: Vec3, dir: Vec3, section: FloatArray?, reach: (Vec3) -> Float) = store.launch {
-        val tool = store.value.tool as? Tool.MeshEdit ?: return@launch
+        val tool = store.value.workspace.tool as? Tool.MeshEdit ?: return@launch
         val hit = pick(origin, dir, section) ?: return@launch
         if (hit.obj != selection?.obj || hit.instance != selection?.instance) store.update { it.withSelected(listOf(Selection(hit.obj, hit.instance))) }
         if (tool.cut in 0..2) {
@@ -839,7 +838,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Mesh edit "clear", "all" or "grow" on the current selection. */
     fun meshEditOp(op: String) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
-        val step = engine.meshEdit(sel.target, op, kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        val step = engine.meshEdit(sel.target, op, kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
 
@@ -847,7 +846,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun meshEditTransform(matrix: List<Double>) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
         engine.meshEdit(sel.target, "move", matrix = matrix)
-        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+        val step = engine.meshEdit(sel.target, "end", kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
         step.scene?.let { store.applyScene(it) }
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
     }
@@ -855,7 +854,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket), "inset" ([mm] in), "fillet" or "chamfer" ([mm] radius / size on the selection's creases), one undo step. */
     fun meshEditFaces(op: String, mm: Float) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
-        val kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face"
+        val kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face"
         val t = sel.normal * mm
         val step = if (op != "extrude") engine.meshEdit(sel.target, op, kind = kind, angle = meshEditAngle(), amount = mm)
         else {
@@ -885,7 +884,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     val (mm, end) = synchronized(meshEditLock) { meshEditPending.also { meshEditPending = null } } ?: break
                     val sel = liveMeshEditSel() ?: continue
                     if (mm != 0f || meshEditMoved) {
-                        val extrude = !meshEditMoved && (store.value.tool as? Tool.MeshEdit)?.extrude == true
+                        val extrude = !meshEditMoved && (store.value.workspace.tool as? Tool.MeshEdit)?.extrude == true
                         val step = engine.meshEdit(sel.target, if (extrude) "extrude" else "move", matrix = translation(sel.normal * mm))
                         if (extrude) {
                             // A new mesh (walls, cap copies): its scene first, then the cap as the selection for the version check.
@@ -897,7 +896,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                     }
                     if (end && meshEditMoved) {
                         meshEditMoved = false
-                        val step = engine.meshEdit(sel.target, "end", kind = (store.value.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
+                        val step = engine.meshEdit(sel.target, "end", kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
                         step.scene?.let { store.applyScene(it) }
                         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
                     }
@@ -934,14 +933,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** A mouse or pen hovers along this ray (null: it left the view): the brush ring follows the surface under it. */
     fun sculptHover(ray: Pair<Vec3, Vec3>?) {
-        if (store.value.tool !is Tool.Sculpt) return
+        if (store.value.workspace.tool !is Tool.Sculpt) return
         synchronized(pendingSculpt) { hoverRay = ray }
         if (ray == null) sculptCursor.value = null else drainSculpt()
     }
 
     /** The surface under [ray] on the selected object: a hit test on the sculpt session's part, else a scene pick. */
     private suspend fun probeHover(ray: Pair<Vec3, Vec3>) {
-        val tool = store.value.tool as? Tool.Sculpt
+        val tool = store.value.workspace.tool as? Tool.Sculpt
         val sel = selection
         if (tool == null || sel == null) { sculptCursor.value = null; return }
         val step = hoverTarget?.takeIf { it.obj == sel.obj }?.let {
@@ -954,7 +953,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
     }
 
     private fun queueSculpt(sample: SculptSample) {
-        if (store.value.tool !is Tool.Sculpt) return
+        if (store.value.workspace.tool !is Tool.Sculpt) return
         synchronized(pendingSculpt) { pendingSculpt.addLast(sample) }
         drainSculpt()
     }
@@ -975,7 +974,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         probeHover(ray)
                         continue
                     }
-                    val tool = store.value.tool as? Tool.Sculpt
+                    val tool = store.value.workspace.tool as? Tool.Sculpt
                     val first = batch.first()
                     if (first.newStroke) {
                         val sel = selection
@@ -1016,8 +1015,8 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val s = store.value
         val out = ArrayList<FloatArray>()
         var total = 0
-        for ((o, obj) in s.scene.objects.withIndex()) for ((i, inst) in obj.instances.withIndex()) {
-            if (inst.plate != s.activePlate || total > 600_000) continue
+        for ((o, obj) in s.workspace.scene.objects.withIndex()) for ((i, inst) in obj.instances.withIndex()) {
+            if (inst.plate != s.workspace.activePlate || total > 600_000) continue
             val l = engine.creaseLines(o, i, angle)
             total += l.size; out += l
         }
@@ -1036,7 +1035,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, profile) = op(sel.obj)
         store.applyScene(scene)
-        store.update { it.copy(layerProfile = profile) }
+        store.update { it.copy(workspace = it.workspace.copy(layerProfile = profile)) }
     }
 
     fun layerAdaptive(quality: Float) = store.launch { loadLayerProfile { engine.layerAdaptive(it, quality) } }
@@ -1050,12 +1049,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
         presets.syncSelection()
         val (scene, calib) = engine.calibStart(type, params)
         store.applyScene(scene)
-        store.update { it.copy(calibration = calib, selection = null, screen = Screen.PREPARE, projectName = calib.name,
-            nameBeforeCalibration = if (it.calibration == null) it.projectName else it.nameBeforeCalibration) }
+        store.update { it.copy(workspace = it.workspace.copy(selection = null, calibration = calib, projectName = calib.name, nameBeforeCalibration = if (it.workspace.calibration == null) it.workspace.projectName else it.workspace.nameBeforeCalibration), chrome = it.chrome.copy(screen = Screen.PREPARE)) }
     }
 
     fun stopCalibration() = store.launch {
         store.applyScene(engine.calibStop())
-        store.update { it.copy(calibration = null) }
+        store.update { it.copy(workspace = it.workspace.copy(calibration = null)) }
     }
 }

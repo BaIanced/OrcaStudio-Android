@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Architecture
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,19 +26,9 @@ fun CadBadge() {
         color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
 }
 
-/**
- * The Add menu's builder rows: one "Design" row opening the shape builder (code stays reachable inside via New / Open),
- * or with [split] (Settings) the separate OpenSCAD and Shape builder rows, each badged.
- */
+/** The Add menu's builder row: one "Design" row opening the shape builder (code stays reachable inside via New / Open). */
 @Composable
-fun DesignEntries(vm: AppViewModel, split: Boolean, close: () -> Unit) {
-    if (split) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.add_openscad)) }, leadingIcon = { Icon(Icons.Default.Code, null) },
-            trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.open() })
-        DropdownMenuItem(text = { Text(stringResource(R.string.shape_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
-            trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.newShapes() })
-    } else {
-        DropdownMenuItem(text = { Text(stringResource(R.string.add_design)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
-            trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.newShapes() })
-    }
+fun DesignEntries(vm: AppViewModel, close: () -> Unit) {
+    DropdownMenuItem(text = { Text(stringResource(R.string.add_design)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
+        trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.newShapes() })
 }

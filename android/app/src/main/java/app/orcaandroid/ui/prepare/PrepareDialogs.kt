@@ -81,12 +81,12 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
             onClick = { onDismiss(); onDialog("text") })
         DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
             onClick = { onDismiss(); onDialog("svg") })
-        DesignEntries(vm, state.builderSplit, onDismiss)
+        DesignEntries(vm, onDismiss)
         DropdownMenuItem(text = { Text(stringResource(R.string.sample_models)) }, leadingIcon = { Icon(Icons.Default.Toys, null) },
             onClick = { onDismiss(); onDialog("samples") })
         HorizontalDivider()
         DropdownMenuItem(text = { Text(stringResource(R.string.calibration)) }, leadingIcon = { Icon(Icons.Default.Science, null) },
-            onClick = { onDismiss(); onDialog("calib") }, enabled = state.calibration == null)
+            onClick = { onDismiss(); onDialog("calib") }, enabled = state.workspace.calibration == null)
     }
 }
 
@@ -96,8 +96,8 @@ internal fun AddMenu(state: UiState, vm: AppViewModel, open: Boolean, onDismiss:
  */
 @Composable
 internal fun FlushDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val n = state.filaments.size
-    val stored = state.value(PresetType.PRINT, "flush_volumes_matrix")?.split(',')?.mapNotNull { it.trim().toFloatOrNull() }.orEmpty()
+    val n = state.device.filaments.size
+    val stored = state.device.value(PresetType.PRINT, "flush_volumes_matrix")?.split(',')?.mapNotNull { it.trim().toFloatOrNull() }.orEmpty()
     var matrix by remember(stored) { mutableStateOf(if (stored.size == n * n) stored else List(n * n) { 0f }) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -108,11 +108,11 @@ internal fun FlushDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit
                 Text(stringResource(R.string.flush_matrix_text), style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.width(40.dp))
-                    state.filaments.forEach { f -> Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) { ColorDot(f.color, 18) } }
+                    state.device.filaments.forEach { f -> Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) { ColorDot(f.color, 18) } }
                 }
                 for (from in 0 until n) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.width(40.dp), contentAlignment = Alignment.Center) { ColorDot(state.filaments[from].color, 18) }
+                        Box(Modifier.width(40.dp), contentAlignment = Alignment.Center) { ColorDot(state.device.filaments[from].color, 18) }
                         for (to in 0 until n) {
                             if (from == to) Box(Modifier.width(84.dp), contentAlignment = Alignment.Center) { Text("—") }
                             else NumberField(matrix[from * n + to], { v ->
@@ -154,7 +154,7 @@ internal fun AddDialogs(state: UiState, vm: AppViewModel, dialog: String?, onDis
 /** GLGizmoMeshBoolean as a dialog: two parts of the selected object, one operation. */
 @Composable
 private fun MeshBooleanDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
-    val obj = state.selectedObject ?: return onDismiss()
+    val obj = state.workspace.selectedObject ?: return onDismiss()
     val parts = obj.volumes.filter { it.type == VolumeType.PART }
     val ops = listOf("union" to R.string.boolean_union, "difference" to R.string.boolean_difference, "intersection" to R.string.boolean_intersection)
     var op by remember { mutableStateOf("difference") }
@@ -266,7 +266,7 @@ private fun SamplesDialog(vm: AppViewModel, onDismiss: () -> Unit) {
 @Composable
 private fun SimplifyDialog(state: UiState, vm: AppViewModel, onDismiss: () -> Unit) {
     var ratio by remember { mutableFloatStateOf(0.5f) }
-    val tris = state.selectedObject?.triangles ?: 0
+    val tris = state.workspace.selectedObject?.triangles ?: 0
     DialogFrame(stringResource(R.string.simplify), stringResource(R.string.apply), onConfirm = { vm.scene.simplify(ratio) }, onDismiss = onDismiss) {
         Text(stringResource(R.string.simplify_result, tris, (tris * ratio).toInt()))
         Slider(ratio, { ratio = it }, valueRange = 0.05f..0.95f)
@@ -413,7 +413,7 @@ fun CalibrationDialog(vm: AppViewModel, initial: String? = null, onDismiss: () -
 /** Pauses, filament changes and custom G-code at given heights of a plate. */
 @Composable
 internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, initialZ: Float? = null, onDismiss: () -> Unit) {
-    val items = remember { mutableStateListOf<LayerGcode>().apply { addAll(state.scene.plates.getOrNull(plate)?.layerGcodes.orEmpty()) } }
+    val items = remember { mutableStateListOf<LayerGcode>().apply { addAll(state.workspace.scene.plates.getOrNull(plate)?.layerGcodes.orEmpty()) } }
     var adding by remember { mutableStateOf(initialZ != null) }
     var z by remember { mutableFloatStateOf(initialZ ?: 5f) }
     var type by remember { mutableStateOf("pause") }
@@ -442,19 +442,19 @@ internal fun LayerGcodeDialog(state: UiState, vm: AppViewModel, plate: Int, init
                     }
                     when (type) {
                         // A colour change switches to another filament slot (runs the printer's filament change G-code).
-                        "color" -> if (state.filaments.size < 2) {
+                        "color" -> if (state.device.filaments.size < 2) {
                             Text(stringResource(R.string.color_change_needs_filament), style = MaterialTheme.typography.bodySmall)
                         } else {
                             PickerField(stringResource(R.string.filament), extruder.toString(),
-                                state.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) }, { extruder = it.toInt() })
+                                state.device.filaments.mapIndexed { i, f -> PickerItem((i + 1).toString(), "${i + 1}: ${f.preset}", color = f.color.orEmpty()) }, { extruder = it.toInt() })
                         }
                         "custom" -> OutlinedTextField(extra, { extra = it }, label = { Text("G-code") }, minLines = 3, modifier = Modifier.fillMaxWidth())
                         else -> OutlinedTextField(extra, { extra = it }, label = { Text(stringResource(R.string.message)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     }
                     TextButton(onClick = {
-                        items.add(LayerGcode(z, type, extra, state.filaments.getOrNull(extruder - 1)?.color.orEmpty(), extruder))
+                        items.add(LayerGcode(z, type, extra, state.device.filaments.getOrNull(extruder - 1)?.color.orEmpty(), extruder))
                         adding = false; extra = ""
-                    }, enabled = type != "color" || state.filaments.size >= 2) { Text(stringResource(R.string.add)) }
+                    }, enabled = type != "color" || state.device.filaments.size >= 2) { Text(stringResource(R.string.add)) }
                 } else {
                     TextButton(onClick = { adding = true }) { Text(stringResource(R.string.add_entry)) }
                 }

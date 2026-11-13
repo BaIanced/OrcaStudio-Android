@@ -25,10 +25,10 @@ class SliceController(private val store: Store, private val presets: PresetContr
     /** In-flight G-code tool-change parses per plate (Task 11); a plate's parse is cancelled when it is re-sliced. */
     private val parseJobs = mutableMapOf<Int, Job>()
 
-    fun slice(plate: Int = store.value.activePlate) = store.launch {
-        val running = store.value.slice as? SliceStatus.Running
+    fun slice(plate: Int = store.value.workspace.activePlate) = store.launch {
+        val running = store.value.slicing.slice as? SliceStatus.Running
         if (running != null && !running.background) return@launch
-        if (store.value.scene.objectsOn(plate).isEmpty()) {
+        if (store.value.workspace.scene.objectsOn(plate).isEmpty()) {
             store.toast(store.str(R.string.nothing_to_slice))
             return@launch
         }
@@ -43,9 +43,9 @@ class SliceController(private val store: Store, private val presets: PresetContr
     }
 
     /** Shows the active plate's current slice in the preview (the Slice button once a background slice is ready). */
-    fun showPreview(plate: Int = store.value.activePlate) = store.update { s ->
-        val result = s.results[plate] ?: return@update s
-        s.copy(previewPlate = plate, external = null, screen = Screen.PREVIEW, preview = s.preview.showingAll(result.layers.lastIndex))
+    fun showPreview(plate: Int = store.value.workspace.activePlate) = store.update { s ->
+        val result = s.slicing.results[plate] ?: return@update s
+        s.copy(slicing = s.slicing.copy(previewPlate = plate, external = null, preview = s.slicing.preview.showingAll(result.layers.lastIndex)), chrome = s.chrome.copy(screen = Screen.PREVIEW))
     }
 
     /** Turns the running background slice into one the user waits for: progress panel, notification, Preview at the end. */
@@ -54,8 +54,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
         var promoted = false
         var current: SliceStatus.Running? = null
         store.update { s ->
-            val r = s.slice as? SliceStatus.Running
-            if (r == null || !r.background) s else { promoted = true; current = r; s.copy(slice = r.copy(background = false), sliceError = null) }
+            val r = s.slicing.slice as? SliceStatus.Running
+            if (r == null || !r.background) s else { promoted = true; current = r; s.copy(slicing = s.slicing.copy(slice = r.copy(background = false), sliceError = null)) }
         }
         if (promoted) {
             userCancelled = false
@@ -70,8 +70,8 @@ class SliceController(private val store: Store, private val presets: PresetContr
         parseJobs.remove(plate)?.cancel()
         if (!background) userCancelled = false
         val preparing = store.str(R.string.preparing)
-        store.update { it.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.sliceError else null,
-            fitIssue = if (background) it.fitIssue else null) }
+        store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(plate, 0, preparing, background), sliceError = if (background) it.slicing.sliceError else null,
+            fitIssue = if (background) it.slicing.fitIssue else null)) }
         if (!background) {
             progress.value = SliceProgress(0, preparing)
             runCatching { SliceService.start(store.app) }
@@ -81,27 +81,28 @@ class SliceController(private val store: Store, private val presets: PresetContr
             presets.syncSelection()
             val result = engine.slice(plate, background) { p, t ->
                 // Keeps the flag a promote() may have cleared meanwhile.
-                store.update { s -> s.copy(slice = SliceStatus.Running(plate, p, t, (s.slice as? SliceStatus.Running)?.background ?: background)) }
-                if (store.value.isSlicing) progress.value = SliceProgress(p, t)
+                store.update { s -> s.copy(slicing = s.slicing.copy(slice = SliceStatus.Running(plate, p, t, (s.slicing.slice as? SliceStatus.Running)?.background ?: background))) }
+                if (store.value.slicing.isSlicing) progress.value = SliceProgress(p, t)
             }
-            val waited = store.value.isSlicing
+            val waited = store.value.slicing.isSlicing
             val before = lastSlices[plate]?.takeIf { it.project == key.project }
             lastSlices[plate] = SliceSummary(key.project, result.printTimeSeconds, result.filamentGrams)
             val delta = before?.let { SliceDelta(plate, result.printTimeSeconds - it.seconds, result.filamentGrams - it.grams) }
             store.update {
-                val shown = if (waited) it.copy(previewPlate = plate, external = null, screen = Screen.PREVIEW,
-                    preview = it.preview.showingAll(result.layers.lastIndex), upload = null)
+                val shown = if (waited) it.copy(
+                    slicing = it.slicing.copy(previewPlate = plate, external = null, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), device = it.device.copy(upload = null),
+                    chrome = it.chrome.copy(screen = Screen.PREVIEW))
                 // In the background the preview only follows when nobody is looking at another plate's.
-                else if (it.screen != Screen.PREVIEW || it.previewPlate == plate) it.copy(previewPlate = plate,
-                    preview = it.preview.showingAll(result.layers.lastIndex))
+                else if (it.chrome.screen != Screen.PREVIEW || it.slicing.previewPlate == plate) it.copy(slicing = it.slicing.copy(previewPlate = plate,
+                    preview = it.slicing.preview.showingAll(result.layers.lastIndex)))
                 else it
-                shown.copy(results = it.results + (plate to result), sliceDelta = delta ?: it.sliceDelta?.takeIf { d -> d.plate != plate })
+                shown.copy(slicing = shown.slicing.copy(results = it.slicing.results + (plate to result), sliceDelta = delta ?: it.slicing.sliceDelta?.takeIf { d -> d.plate != plate }))
             }
             parseToolChanges(plate, result)
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (!store.value.isSlicing) {
+            if (!store.value.slicing.isSlicing) {
                 // Pre-empted by an edit, or a background failure: silent. A failure is not retried until something changes;
                 // tapping Slice shows it.
                 if (e !is app.orcaandroid.core.Engine.SlicePreempted && e.message != CANCELLED) failedKey = key
@@ -111,13 +112,13 @@ class SliceController(private val store: Store, private val presets: PresetContr
             // On the 3D view (Notices), not in a dialog: a dialog window could open out of sight (Quest panel, user 2026-10-19).
             // The failure a user cancel makes is not an error (user 2026-10-28): no badge.
             android.util.Log.w("OrcaSlice", "slice failed", e)
-            if (!userCancelled) store.update { it.copy(sliceError = plate to (e.message ?: e.toString())) }
+            if (!userCancelled) store.update { it.copy(slicing = it.slicing.copy(sliceError = plate to (e.message ?: e.toString()))) }
             // Any failure: say which object is too big and offer a turn / lay that fits. Not only on "inside the
             // print volume": an oversized object often fails first on the prime tower spot (WSA r524, 2026-11-04).
             if (!userCancelled) store.checkFit()
         } finally {
             progress.value = null
-            store.update { it.copy(slice = SliceStatus.Idle) }
+            store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Idle)) }
         }
     }
 
@@ -128,7 +129,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
         val filaments: List<app.orcaandroid.core.FilamentSlot>, val overrides: Map<app.orcaandroid.core.PresetType, Map<String, String>>,
         val project: String?)
 
-    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.scene, s.printer, s.print, s.filaments, s.overrides, s.projectName)
+    private fun editKey(s: UiState, plate: Int) = EditKey(plate, s.workspace.scene, s.device.printer, s.device.print, s.device.filaments, s.device.overrides, s.workspace.projectName)
 
     private data class SliceSummary(val project: String?, val seconds: Double, val grams: Double)
 
@@ -148,25 +149,25 @@ class SliceController(private val store: Store, private val presets: PresetContr
     suspend fun autoSlice() {
         val power = store.app.getSystemService(android.os.PowerManager::class.java)
         store.state.map { s ->
-            val plate = s.activePlate
-            val wanted = s.autoSlice && s.phase == Phase.READY && s.results[plate] == null && s.scene.objectsOn(plate).isNotEmpty()
-            Triple(if (wanted) editKey(s, plate) else null, s.slice == SliceStatus.Idle && s.busy == null, s.screen == Screen.PREVIEW)
+            val plate = s.workspace.activePlate
+            val wanted = s.slicing.autoSlice && s.chrome.phase == Phase.READY && s.slicing.results[plate] == null && s.workspace.scene.objectsOn(plate).isNotEmpty()
+            Triple(if (wanted) editKey(s, plate) else null, s.slicing.slice == SliceStatus.Idle && s.chrome.busy == null, s.chrome.screen == Screen.PREVIEW)
         }.distinctUntilChanged().collectLatest { (key, idle, onPreview) ->
             if (key == null || !idle || key == failedKey) return@collectLatest
             if (!onPreview) delay(IDLE_MS)
             if (power?.isPowerSaveMode == true) return@collectLatest
             val s = store.value
-            if (s.slice != SliceStatus.Idle || s.busy != null || editKey(s, s.activePlate) != key) return@collectLatest
+            if (s.slicing.slice != SliceStatus.Idle || s.chrome.busy != null || editKey(s, s.workspace.activePlate) != key) return@collectLatest
             // Marked running at once, so a Slice tap from here on finds it; its own job, so a plate switch doesn't throw away
             // a slice that is still valid.
-            store.update { it.copy(slice = SliceStatus.Running(key.plate, 0, store.str(R.string.preparing), background = true)) }
+            store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(key.plate, 0, store.str(R.string.preparing), background = true))) }
             autoJob = store.scope.launch { runSlice(key.plate, background = true) }
         }
     }
 
     /** Stops a running background slice (setting turned off, another plate sliced). */
     fun stopAutoSlice() {
-        if ((store.value.slice as? SliceStatus.Running)?.background == true) engine.cancel()
+        if ((store.value.slicing.slice as? SliceStatus.Running)?.background == true) engine.cancel()
     }
 
     private companion object {
@@ -177,10 +178,10 @@ class SliceController(private val store: Store, private val presets: PresetContr
 
     /** Slices every non-empty plate one after the other, stopping at the first error. */
     fun sliceAll() = store.launch {
-        for (p in store.value.scene.plates.indices) {
-            if (store.value.scene.objectsOn(p).isEmpty()) continue
+        for (p in store.value.workspace.scene.plates.indices) {
+            if (store.value.workspace.scene.objectsOn(p).isEmpty()) continue
             slice(p).join()
-            if (store.value.error != null || store.value.sliceError != null || userCancelled) break
+            if (store.value.chrome.error != null || store.value.slicing.sliceError != null || userCancelled) break
         }
     }
 
@@ -188,22 +189,22 @@ class SliceController(private val store: Store, private val presets: PresetContr
     @Volatile private var userCancelled = false
 
     fun cancelSlice() {
-        if (store.value.isSlicing) userCancelled = true
+        if (store.value.slicing.isSlicing) userCancelled = true
         engine.cancel()
     }
 
     /** Shows an existing G-code file in the preview. */
     suspend fun viewGcodeFile(file: File) {
-        store.update { it.copy(slice = SliceStatus.Running(-1, 0, store.str(R.string.reading_gcode))) }
+        store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(-1, 0, store.str(R.string.reading_gcode)))) }
         try {
-            val result = engine.viewGcode(file.path) { p, t -> store.update { it.copy(slice = SliceStatus.Running(-1, p, t)) } }
-            store.update { it.copy(external = result, screen = Screen.PREVIEW, preview = it.preview.showingAll(result.layers.lastIndex)) }
+            val result = engine.viewGcode(file.path) { p, t -> store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Running(-1, p, t))) } }
+            store.update { it.copy(slicing = it.slicing.copy(external = result, preview = it.slicing.preview.showingAll(result.layers.lastIndex)), chrome = it.chrome.copy(screen = Screen.PREVIEW)) }
         } finally {
-            store.update { it.copy(slice = SliceStatus.Idle) }
+            store.update { it.copy(slicing = it.slicing.copy(slice = SliceStatus.Idle)) }
         }
     }
 
-    fun closeExternal() = store.update { it.copy(external = null) }
+    fun closeExternal() = store.update { it.copy(slicing = it.slicing.copy(external = null)) }
 
     /**
      * Counts [result]'s tool changes off the main thread (Task 11): the G-code is streamed
@@ -228,7 +229,7 @@ class SliceController(private val store: Store, private val presets: PresetContr
             } ?: return@launch
             // Attach only if this slice is still the plate's result (not re-sliced meanwhile).
             store.update { s ->
-                if (s.results[plate] === result) s.copy(results = s.results + (plate to result.copy(toolChanges = parsed))) else s
+                if (s.slicing.results[plate] === result) s.copy(slicing = s.slicing.copy(results = s.slicing.results + (plate to result.copy(toolChanges = parsed)))) else s
             }
         }
     }
@@ -237,14 +238,14 @@ class SliceController(private val store: Store, private val presets: PresetContr
     fun pickPreviewPlate(plate: Int) {
         setPreviewPlate(plate)
         val s = store.value
-        if (!s.results.containsKey(plate) && s.scene.objectsOn(plate).isNotEmpty() && !s.isSlicing) slice(plate)
+        if (!s.slicing.results.containsKey(plate) && s.workspace.scene.objectsOn(plate).isNotEmpty() && !s.slicing.isSlicing) slice(plate)
     }
 
     fun setPreviewPlate(plate: Int) = store.update { s ->
-        s.copy(previewPlate = plate, external = null, preview = s.preview.showingAll(s.results[plate]?.layers?.lastIndex ?: 0))
+        s.copy(slicing = s.slicing.copy(previewPlate = plate, external = null, preview = s.slicing.preview.showingAll(s.slicing.results[plate]?.layers?.lastIndex ?: 0)))
     }
 
-    fun updatePreview(transform: (PreviewUi) -> PreviewUi) = store.update { it.copy(preview = transform(it.preview)) }
+    fun updatePreview(transform: (PreviewUi) -> PreviewUi) = store.update { it.copy(slicing = it.slicing.copy(preview = transform(it.slicing.preview))) }
 
     private fun PreviewUi.showingAll(lastLayer: Int) = copy(layerLow = 0, layerHigh = lastLayer, moveEnd = null)
 }

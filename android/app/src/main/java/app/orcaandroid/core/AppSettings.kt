@@ -1,7 +1,7 @@
 package app.orcaandroid.core
 
-import app.orcaandroid.ui.prepare.Mix
 import android.content.Context
+import android.content.SharedPreferences
 import app.orcaandroid.net.PrinterConnection
 import org.json.JSONArray
 import org.json.JSONObject
@@ -51,9 +51,124 @@ class AppSettings(context: Context) {
         get() = prefs.getInt("auto_save_seconds", DEFAULT_AUTO_SAVE_SECONDS)
         set(value) = prefs.edit().putInt("auto_save_seconds", value).apply()
 
-    var layoutLab: LayoutLab
-        get() = LayoutLab.fromJson(prefs.getString("layout_lab", null))
-        set(value) = prefs.edit().putString("layout_lab", value.toJson()).apply()
+    /**
+     * One-time move of the retired Layout lab's JSON (and the retired Add-menu split switch) into the individual keys below.
+     * Called from the Store before the first settings read. A restored old backup brings `layout_lab` back, but a restore
+     * restarts the process, so the next start migrates it again.
+     */
+    fun migrateOldLayout() = migrateOldLayoutPrefs(prefs)
+
+    /** Interface size, one of [ViewDefaults.INTERFACE_SIZES]: scales buttons, icons, spacing and text together. */
+    var interfaceSize: Float
+        get() = ViewDefaults.snapInterfaceSize(prefs.getFloat("interface_size", ViewDefaults.INTERFACE_SIZE))
+        set(value) = prefs.edit().putFloat("interface_size", ViewDefaults.snapInterfaceSize(value)).apply()
+
+    /** Pinch zoom speed: exponent on the fingers' gap ratio (1 = 1:1). */
+    var pinchSpeed: Float
+        get() = prefs.getFloat("pinch_speed", ViewDefaults.PINCH_SPEED).coerceIn(ViewDefaults.PINCH_SPEEDS)
+        set(value) = prefs.edit().putFloat("pinch_speed", value.coerceIn(ViewDefaults.PINCH_SPEEDS)).apply()
+
+    /** Mouse wheel / touchpad / thumbstick zoom speed: exponent on the 15 % per wheel notch. */
+    var wheelSpeed: Float
+        get() = prefs.getFloat("wheel_speed", ViewDefaults.WHEEL_SPEED).coerceIn(ViewDefaults.WHEEL_SPEEDS)
+        set(value) = prefs.edit().putFloat("wheel_speed", value.coerceIn(ViewDefaults.WHEEL_SPEEDS)).apply()
+
+    /** The plate switcher shows over the 3D view. */
+    var showPlates: Boolean
+        get() = prefs.getBoolean("show_plates", true)
+        set(value) = prefs.edit().putBoolean("show_plates", value).apply()
+
+    /** Plates drawn dark with upstream's bed-type decals. */
+    var plateHd: Boolean
+        get() = prefs.getBoolean("plate_hd", false)
+        set(value) = prefs.edit().putBoolean("plate_hd", value).apply()
+
+    /** Wide layouts: the settings panel is tucked away to a thin edge. */
+    var panelTucked: Boolean
+        get() = prefs.getBoolean("panel_tucked", false)
+        set(value) = prefs.edit().putBoolean("panel_tucked", value).apply()
+
+    /** Wide layouts: the settings panel's width in dp, set by dragging its edge (0 = default). */
+    var panelWidth: Float
+        get() = prefs.getFloat("panel_width", 0f).coerceAtLeast(0f)
+        set(value) = prefs.edit().putFloat("panel_width", value.coerceAtLeast(0f)).apply()
+
+    /** The floating Slice button's spot as fractions (0-1) of the free room; -1 = bottom right. */
+    var sliceX: Float
+        get() = prefs.getFloat("slice_x", -1f).coerceAtMost(1f)
+        set(value) = prefs.edit().putFloat("slice_x", value.coerceAtMost(1f)).apply()
+    var sliceY: Float
+        get() = prefs.getFloat("slice_y", -1f).coerceAtMost(1f)
+        set(value) = prefs.edit().putFloat("slice_y", value.coerceAtMost(1f)).apply()
+
+    /** Opacity of the control backgrounds over the 3D view. */
+    var overlayAlpha: Float
+        get() = prefs.getFloat("overlay_alpha", ViewDefaults.OVERLAY_ALPHA).coerceIn(ViewDefaults.OVERLAY_ALPHAS)
+        set(value) = prefs.edit().putFloat("overlay_alpha", value.coerceIn(ViewDefaults.OVERLAY_ALPHAS)).apply()
+
+    /** Opacity of the detailed plate seen from below (0 = invisible from underneath). */
+    var plateUnderAlpha: Float
+        get() = prefs.getFloat("plate_under_alpha", ViewDefaults.PLATE_UNDER_ALPHA).coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)
+        set(value) = prefs.edit().putFloat("plate_under_alpha", value.coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)).apply()
+
+    /** Size of the plate switcher alone. */
+    var plateScale: Float
+        get() = prefs.getFloat("plate_scale", ViewDefaults.PLATE_SCALE).coerceIn(ViewDefaults.PLATE_SCALES)
+        set(value) = prefs.edit().putFloat("plate_scale", value.coerceIn(ViewDefaults.PLATE_SCALES)).apply()
+
+    /** Size of the controls floating over the 3D view, on top of the interface size. */
+    var overlayScale: Float
+        get() = prefs.getFloat("overlay_scale", ViewDefaults.OVERLAY_SCALE).coerceIn(ViewDefaults.OVERLAY_SCALES)
+        set(value) = prefs.edit().putFloat("overlay_scale", value.coerceIn(ViewDefaults.OVERLAY_SCALES)).apply()
+
+    /** Size of the Slice button, on top of the interface size. */
+    var sliceScale: Float
+        get() = prefs.getFloat("slice_scale", ViewDefaults.SLICE_SCALE).coerceIn(ViewDefaults.SLICE_SCALES)
+        set(value) = prefs.edit().putFloat("slice_scale", value.coerceIn(ViewDefaults.SLICE_SCALES)).apply()
+
+    /** Text size on top of the system font size. */
+    var textScale: Float
+        get() = prefs.getFloat("text_scale", ViewDefaults.TEXT_SCALE).coerceIn(ViewDefaults.TEXT_SCALES)
+        set(value) = prefs.edit().putFloat("text_scale", value.coerceIn(ViewDefaults.TEXT_SCALES)).apply()
+
+    /** Hide the status and navigation bars in portrait too. */
+    var fullscreenPortrait: Boolean
+        get() = prefs.getBoolean("fullscreen_portrait", ViewDefaults.FULLSCREEN_PORTRAIT)
+        set(value) = prefs.edit().putBoolean("fullscreen_portrait", value).apply()
+
+    /** How the plates are switched; a stored CHIPS (retired) reads as TABS. */
+    var plates: PlateSwitcher
+        get() = parsePlateSwitcher(prefs.getString("plate_switcher", null))
+        set(value) = prefs.edit().putString("plate_switcher", if (value == PlateSwitcher.CHIPS) PlateSwitcher.TABS.name else value.name).apply()
+
+    /** Portrait: the plate switcher sits on the grip above the settings panel. */
+    var platesOnHandle: Boolean
+        get() = prefs.getBoolean("plates_on_handle", ViewDefaults.PLATES_ON_HANDLE)
+        set(value) = prefs.edit().putBoolean("plates_on_handle", value).apply()
+
+    /** Portrait: the tool buttons in a column on the left instead of a row at the bottom. */
+    var toolsLeft: Boolean
+        get() = prefs.getBoolean("tools_left", ViewDefaults.TOOLS_LEFT)
+        set(value) = prefs.edit().putBoolean("tools_left", value).apply()
+
+    /** Portrait tool row: collapsed into just the + button, and its dragged offset in dp (-1 = default). Set by gestures. */
+    var toolsCollapsed: Boolean
+        get() = prefs.getBoolean("tools_collapsed", ViewDefaults.TOOLS_COLLAPSED)
+        set(value) = prefs.edit().putBoolean("tools_collapsed", value).apply()
+    var toolsRowX: Float
+        get() = prefs.getFloat("tools_row_x", ViewDefaults.TOOLS_ROW_X)
+        set(value) = prefs.edit().putFloat("tools_row_x", value).apply()
+    var toolsRowY: Float
+        get() = prefs.getFloat("tools_row_y", ViewDefaults.TOOLS_ROW_Y)
+        set(value) = prefs.edit().putFloat("tools_row_y", value).apply()
+
+    /** Key light direction of the 3D models, set by the view menu's light ball (removable after lighting review, UA-7). */
+    var lightAzimuth: Float
+        get() = prefs.getFloat("light_azimuth", ViewDefaults.LIGHT_AZIMUTH).coerceIn(ViewDefaults.LIGHT_AZIMUTHS)
+        set(value) = prefs.edit().putFloat("light_azimuth", value.coerceIn(ViewDefaults.LIGHT_AZIMUTHS)).apply()
+    var lightElevation: Float
+        get() = prefs.getFloat("light_elevation", ViewDefaults.LIGHT_ELEVATION).coerceIn(ViewDefaults.LIGHT_ELEVATIONS)
+        set(value) = prefs.edit().putFloat("light_elevation", value.coerceIn(ViewDefaults.LIGHT_ELEVATIONS)).apply()
 
     var pen: PenConfig
         get() = PenConfig.fromJson(prefs.getString("pen", null))
@@ -129,11 +244,6 @@ class AppSettings(context: Context) {
     var buildPrinter: Boolean
         get() = prefs.getBoolean("build_printer", true)
         set(value) = prefs.edit().putBoolean("build_printer", value).apply()
-
-    /** Add menu: separate "OpenSCAD" and "Shape builder" rows instead of the one "Design" row. */
-    var builderSplit: Boolean
-        get() = prefs.getBoolean("builder_entries_split", false)
-        set(value) = prefs.edit().putBoolean("builder_entries_split", value).apply()
 
     /** 3D view projection: perspective (default) or orthographic, the desktop's use_perspective_camera. */
     var perspective: Boolean
@@ -306,3 +416,50 @@ const val MAX_UNDO_LIMIT = 5000
 const val DEFAULT_AUTO_SAVE_SECONDS = 60
 val AUTO_SAVE_RANGE = 10..3600
 const val AI_TOOLS_PORT = 8765
+
+/** A stored plate switcher name; unknown or the retired CHIPS give TABS. */
+internal fun parsePlateSwitcher(name: String?): PlateSwitcher =
+    runCatching { PlateSwitcher.valueOf(name!!) }.getOrNull()?.takeIf { it != PlateSwitcher.CHIPS } ?: ViewDefaults.PLATES
+
+/**
+ * [AppSettings.migrateOldLayout] on any preferences file: the retired Layout lab's `layout_lab` JSON becomes the individual
+ * keys (clamped as the lab's own parser did), every other lab field is dropped (its value is a constant now), and the
+ * lab key and the retired `builder_entries_split` key are removed, so this runs only once. A JSON that does not parse
+ * writes nothing but is removed too. With neither key present nothing is written.
+ */
+internal fun migrateOldLayoutPrefs(prefs: SharedPreferences) {
+    if (!prefs.contains("layout_lab") && !prefs.contains("builder_entries_split")) return
+    val edit = prefs.edit()
+    val o = prefs.getString("layout_lab", null)?.let { runCatching { JSONObject(it) }.getOrNull() }
+    if (o != null) {
+        fun num(name: String) = if (o.has(name)) o.optDouble(name).takeUnless { it.isNaN() }?.toFloat() else null
+        fun bool(name: String) = if (o.has(name) && o.opt(name) is Boolean) o.optBoolean(name) else null
+        num("uiScale")?.let { edit.putFloat("interface_size", ViewDefaults.snapInterfaceSize(it)) }
+        num("pinchSpeed")?.let { edit.putFloat("pinch_speed", it.coerceIn(ViewDefaults.PINCH_SPEEDS)) }
+        num("wheelSpeed")?.let { edit.putFloat("wheel_speed", it.coerceIn(ViewDefaults.WHEEL_SPEEDS)) }
+        bool("showPlates")?.let { edit.putBoolean("show_plates", it) }
+        bool("plateHd")?.let { edit.putBoolean("plate_hd", it) }
+        bool("panelTucked")?.let { edit.putBoolean("panel_tucked", it) }
+        num("panelWidth")?.let { edit.putFloat("panel_width", it.coerceAtLeast(0f)) }
+        num("sliceX")?.let { edit.putFloat("slice_x", it.coerceAtMost(1f)) }
+        num("sliceY")?.let { edit.putFloat("slice_y", it.coerceAtMost(1f)) }
+        num("lightAzimuth")?.let { edit.putFloat("light_azimuth", it.coerceIn(ViewDefaults.LIGHT_AZIMUTHS)) }
+        num("lightElevation")?.let { edit.putFloat("light_elevation", it.coerceIn(ViewDefaults.LIGHT_ELEVATIONS)) }
+        num("overlayAlpha")?.let { edit.putFloat("overlay_alpha", it.coerceIn(ViewDefaults.OVERLAY_ALPHAS)) }
+        num("plateUnderAlpha")?.let { edit.putFloat("plate_under_alpha", it.coerceIn(ViewDefaults.PLATE_UNDER_ALPHAS)) }
+        num("plateScale")?.let { edit.putFloat("plate_scale", it.coerceIn(ViewDefaults.PLATE_SCALES)) }
+        num("overlayScale")?.let { edit.putFloat("overlay_scale", it.coerceIn(ViewDefaults.OVERLAY_SCALES)) }
+        num("sliceScale")?.let { edit.putFloat("slice_scale", it.coerceIn(ViewDefaults.SLICE_SCALES)) }
+        num("textScale")?.let { edit.putFloat("text_scale", it.coerceIn(ViewDefaults.TEXT_SCALES)) }
+        bool("fullscreenPortrait")?.let { edit.putBoolean("fullscreen_portrait", it) }
+        bool("platesOnHandle")?.let { edit.putBoolean("plates_on_handle", it) }
+        bool("toolsLeft")?.let { edit.putBoolean("tools_left", it) }
+        bool("toolsCollapsed")?.let { edit.putBoolean("tools_collapsed", it) }
+        num("toolsRowX")?.let { edit.putFloat("tools_row_x", it) }
+        num("toolsRowY")?.let { edit.putFloat("tools_row_y", it) }
+        if (o.has("plates")) runCatching { PlateSwitcher.valueOf(o.getString("plates")) }.getOrNull()?.let {
+            edit.putString("plate_switcher", parsePlateSwitcher(it.name).name)
+        }
+    }
+    edit.remove("layout_lab").remove("builder_entries_split").apply()
+}

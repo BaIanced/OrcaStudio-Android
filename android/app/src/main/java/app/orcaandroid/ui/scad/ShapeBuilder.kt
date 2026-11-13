@@ -211,7 +211,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             Text(stringResource(R.string.shape_empty), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
         }
-        val filaments = vm.state.collectAsState().value.filaments
+        val filaments = vm.state.collectAsState().value.device.filaments
         d.shapes.forEach { ShapeRow(it, 0, s, vm, filaments) { runCatching { focus.requestFocus() } } }
         val one = s.selected.singleOrNull()?.let { d.find(it) }
         if (one != null) {
@@ -263,22 +263,22 @@ private fun Toolbar(s: ScadEditorState, vm: AppViewModel) {
             }
         }
         Tip(stringResource(R.string.snap_toggle)) {
-            val on = vm.state.collectAsState().value.snapBuild
+            val on = vm.state.collectAsState().value.design.snapBuild
             IconToggleButton(on, { vm.toggleSnap() }) { Icon(app.orcaandroid.ui.prepare.SnapIcon, stringResource(R.string.snap_toggle)) }
         }
         Tip(stringResource(R.string.build_others)) {
-            val others = vm.state.collectAsState().value.buildOthers
+            val others = vm.state.collectAsState().value.design.buildOthers
             IconButton(onClick = vm::cycleBuildOthers) {
                 Icon(when (others) { 0 -> Icons.Default.Opacity; 1 -> Icons.Default.Visibility; else -> Icons.Default.VisibilityOff },
                     stringResource(R.string.build_others))
             }
         }
         Tip(stringResource(R.string.build_printer)) {
-            val on = vm.state.collectAsState().value.buildPrinter
+            val on = vm.state.collectAsState().value.design.buildPrinter
             IconToggleButton(on, { vm.toggleBuildPrinter() }) { Icon(Icons.Default.ViewInAr, stringResource(R.string.build_printer)) }
         }
         Tip(stringResource(R.string.move_lock)) {
-            val lock = vm.state.collectAsState().value.moveLock
+            val lock = vm.state.collectAsState().value.workspace.moveLock
             IconButton(onClick = vm::cycleMoveLock) { app.orcaandroid.ui.prepare.MoveLockFace(lock) }
         }
         Tip(stringResource(R.string.shape_mirror)) {

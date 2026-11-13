@@ -90,10 +90,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 
-/** Opacity of the control backgrounds over the 3D view (Layout lab). */
+/** Opacity of the control backgrounds over the 3D view. */
 val LocalOverlayAlpha = compositionLocalOf { 0.85f }
 
-/** Scales the plate switcher alone (Layout lab), on top of the interface and overlay sizes. */
+/** Scales the plate switcher alone, on top of the interface size. */
 @Composable
 fun PlateScale(scale: Float, content: @Composable () -> Unit) {
     val base = androidx.compose.ui.platform.LocalDensity.current
@@ -166,10 +166,10 @@ class PlatePicks(private val haptic: HapticFeedback) {
 /** Tap focuses a plate (the active one opens [menu]); while picking, taps pick or drop inactive plates. */
 @OptIn(ExperimentalFoundationApi::class)
 private fun Modifier.plateClicks(state: UiState, vm: AppViewModel, view: PlateView?, picks: PlatePicks, plate: Int, menu: () -> Unit) =
-    combinedClickable(onLongClick = { picks.longPress(plate, state.activePlate) }) {
+    combinedClickable(onLongClick = { picks.longPress(plate, state.workspace.activePlate) }) {
         when {
-            picks.active -> if (plate != state.activePlate) picks.toggle(plate)
-            plate == state.activePlate -> menu()
+            picks.active -> if (plate != state.workspace.activePlate) picks.toggle(plate)
+            plate == state.workspace.activePlate -> menu()
             else -> { vm.scene.selectPlate(plate); view?.showPlate(plate) }
         }
     }
@@ -183,7 +183,7 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
             IconButton(onClick = vm.scene::addPlate) { Icon(Icons.Default.Add, stringResource(R.string.add_plate)) }
         }
     }) { plate, picks ->
-            val active = plate.index == state.activePlate
+            val active = plate.index == state.workspace.activePlate
             val picked = plate.index in picks.picked
             val name = stringResource(R.string.plate_n, plate.index + 1)
             val scheme = MaterialTheme.colorScheme
@@ -214,31 +214,27 @@ fun PlateTabs(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
 
 /**
  * Plates in a scrolling row that keeps the active one in view (a new plate, or one picked on the canvas),
- * with the add button pinned after it so it never scrolls away.
+ * with the add button pinned before it (at the start) so it never scrolls away and never moves when a plate is added.
  */
 @Composable
 internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spacing: Dp, align: Alignment.Vertical,
                      add: @Composable () -> Unit, item: @Composable (Plate, PlatePicks) -> Unit) {
     val list = rememberLazyListState()
-    val plates = state.scene.plates
+    val plates = state.workspace.scene.plates
     val haptic = LocalHapticFeedback.current
     val picks = remember { PlatePicks(haptic) }
     // Plate numbers shift when plates come or go: start over.
     LaunchedEffect(plates.size) { picks.picked = emptySet() }
-    LaunchedEffect(state.activePlate) { picks.picked -= state.activePlate }
+    LaunchedEffect(state.workspace.activePlate) { picks.picked -= state.workspace.activePlate }
     BackHandler(picks.active) { picks.picked = emptySet() }
-    LaunchedEffect(state.activePlate, plates.size) {
+    LaunchedEffect(state.workspace.activePlate, plates.size) {
         val info = list.layoutInfo
-        val seen = info.visibleItemsInfo.firstOrNull { it.index == state.activePlate }
-        if (state.activePlate in plates.indices &&
+        val seen = info.visibleItemsInfo.firstOrNull { it.index == state.workspace.activePlate }
+        if (state.workspace.activePlate in plates.indices &&
             (seen == null || seen.offset < info.viewportStartOffset || seen.offset + seen.size > info.viewportEndOffset))
-            list.animateScrollToItem(state.activePlate)
+            list.animateScrollToItem(state.workspace.activePlate)
     }
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(spacing), verticalAlignment = align) {
-        LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
-            verticalAlignment = align) {
-            items(plates.size) { item(plates[it], picks) }
-        }
         // While picking, the add slot turns into a stop button of the same size, so the plates don't shift
         // under the finger; the delete button floats beside the row (above the filmstrip, right of the tabs).
         Box(contentAlignment = Alignment.Center) {
@@ -249,6 +245,10 @@ internal fun PlateRow(state: UiState, vm: AppViewModel, modifier: Modifier, spac
                 } }
                 PickDelete(vm, picks, above = align == Alignment.Bottom)
             }
+        }
+        LazyRow(Modifier.weight(1f, fill = false), state = list, horizontalArrangement = Arrangement.spacedBy(spacing),
+            verticalAlignment = align) {
+            items(plates.size) { item(plates[it], picks) }
         }
     }
 }
@@ -290,10 +290,10 @@ fun PlateLabel(state: UiState, vm: AppViewModel) {
     var menu by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { menu = true }) {
-            Text(stringResource(R.string.plate_n_of_m, state.activePlate + 1, state.scene.plates.size), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.plate_n_of_m, state.workspace.activePlate + 1, state.workspace.scene.plates.size), style = MaterialTheme.typography.titleSmall)
             Icon(Icons.Default.ExpandMore, null, Modifier.size(18.dp))
         }
-        if (menu) PlateMenu(state, vm, state.activePlate) { menu = false }
+        if (menu) PlateMenu(state, vm, state.workspace.activePlate) { menu = false }
     }
 }
 
@@ -311,7 +311,7 @@ fun Filmstrip(state: UiState, vm: AppViewModel, view: PlateView?, modifier: Modi
             }
         }
     }) { plate, picks ->
-            val active = plate.index == state.activePlate
+            val active = plate.index == state.workspace.activePlate
             val picked = plate.index in picks.picked
             val shape = RoundedCornerShape(8.dp)
             Box {
@@ -352,12 +352,12 @@ fun FileButton(state: UiState, vm: AppViewModel) {
 /** Found profile updates (daily check): tap installs them; shows progress meanwhile. */
 @Composable
 fun UpdatesChip(state: UiState, vm: AppViewModel) {
-    val updates = state.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
-    val busy = state.profileUpdateProgress != null
+    val updates = state.device.profileUpdates?.takeIf { it.isNotEmpty() } ?: return
+    val busy = state.device.profileUpdateProgress != null
     AssistChip(
         onClick = vm.presets::installProfileUpdates,
         enabled = !busy,
-        label = { Text(if (busy) state.profileUpdateProgress.orEmpty() else pluralStringResource(R.plurals.profile_updates_chip, updates.size, updates.size), maxLines = 1) },
+        label = { Text(if (busy) state.device.profileUpdateProgress.orEmpty() else pluralStringResource(R.plurals.profile_updates_chip, updates.size, updates.size), maxLines = 1) },
         leadingIcon = {
             if (busy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
             else Icon(Icons.Default.Download, null, Modifier.size(18.dp))

@@ -99,24 +99,24 @@ private fun roleColor(role: Int): Color {
 /** Summary, legend and actions of the sliced plate. */
 @Composable
 fun PreviewPanel(state: UiState, vm: AppViewModel, wide: Boolean) {
-    val result = state.shownResult
+    val result = state.slicing.shownResult
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (result == null) {
-            Text(stringResource(if (state.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(if (state.workspace.scene.isEmpty) R.string.no_objects_hint else R.string.not_sliced), style = MaterialTheme.typography.bodyMedium)
             // G4: the background slice of this plate shows up here by itself; Slice makes it a normal one.
-            (state.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.previewPlate }?.let {
+            (state.slicing.slice as? SliceStatus.Running)?.takeIf { it.background && it.plate == state.slicing.previewPlate }?.let {
                 Text("${stringResource(R.string.auto_slicing)} ${it.percent} %", style = MaterialTheme.typography.bodySmall)
                 LinearProgressIndicator(progress = { it.percent / 100f }, modifier = Modifier.fillMaxWidth())
             }
-            if (!state.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.previewPlate) }, enabled = !state.isSlicing) {
-                Text(stringResource(R.string.slice_plate_n, state.previewPlate + 1))
+            if (!state.workspace.scene.isEmpty) Button(onClick = { vm.slicing.slice(state.slicing.previewPlate) }, enabled = !state.slicing.isSlicing) {
+                Text(stringResource(R.string.slice_plate_n, state.slicing.previewPlate + 1))
             }
             OutlinedButton(onClick = { vm.setScreen(Screen.PREPARE) }) { Text(stringResource(R.string.tab_prepare)) }
             return@Column
         }
         Summary(state, vm, result)
         Actions(state, vm, result)
-        if (state.preview.showGcode) GcodeView(state, result)
+        if (state.slicing.preview.showGcode) GcodeView(state, result)
         Legend(state, vm, result)
         if (!result.external) LayerTools(state, vm, result)
     }
@@ -136,14 +136,14 @@ private fun Summary(state: UiState, vm: AppViewModel, r: SliceResult) {
             if (r.filamentUse.size > 1) {
                 r.filamentUse.forEachIndexed { i, (m, g) ->
                     if (m > 0f) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ColorDot(state.filaments.getOrNull(i)?.color)
+                        ColorDot(state.device.filaments.getOrNull(i)?.color)
                         LabeledValue("${i + 1}", "%.2f m · %.1f g".format(Locale.ROOT, m, g))
                     }
                 }
             }
             // Mixed temperatures the user has allowed are only a heads-up (upstream returns it as a warning), not an error.
             r.warnings.forEach {
-                val allowed = state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
+                val allowed = state.device.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")
                 Text(vm.translator.tr(it), color = if (allowed) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -157,8 +157,8 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
     val saveGcode = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/x.gcode")) { it?.let(vm.files::saveGcode) }
     val save3mf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("model/3mf")) { it?.let(vm.files::saveGcode3mf) }
     var menu by remember { mutableStateOf(false) }
-    val connection = state.connection
-    val upload = state.upload
+    val connection = state.device.connection
+    val upload = state.device.upload
 
     if (connection?.isConfigured == true && connection.type.canUpload) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -175,8 +175,8 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
         else stringResource(R.string.connect_printer)
         OutlinedButton(onClick = { vm.setScreen(Screen.DEVICE) }, modifier = Modifier.fillMaxWidth()) { Text(label) }
     }
-    state.amsPrompt?.let { AmsMappingDialog(it, vm) }
-    state.mismatchPrompt?.let { MismatchDialog(it, vm) }
+    state.device.amsPrompt?.let { AmsMappingDialog(it, vm) }
+    state.device.mismatchPrompt?.let { MismatchDialog(it, vm) }
     when (upload) {
         is UploadState.Running -> LinearProgressIndicator(progress = { upload.progress }, modifier = Modifier.fillMaxWidth())
         is UploadState.Done -> {
@@ -207,7 +207,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
             }
         }) { Icon(Icons.Default.Share, stringResource(R.string.share)) } }
         Tip(stringResource(R.string.show_gcode)) { IconButton(onClick = { vm.slicing.updatePreview { it.copy(showGcode = !it.showGcode) } }) {
-            Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.Code, stringResource(R.string.show_gcode), tint = if (state.slicing.preview.showGcode) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
         } }
         Box {
             Tip(stringResource(R.string.more)) { IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, stringResource(R.string.more)) } }
@@ -215,7 +215,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
                 if (!r.external) DropdownMenuItem(text = { Text(stringResource(R.string.save_gcode_3mf)) },
                     onClick = { menu = false; save3mf.launch(vm.files.gcodeFileName().removeSuffix(".gcode") + ".gcode.3mf") })
                 DropdownMenuItem(text = { Text(stringResource(R.string.fp_log_print)) }, onClick = { menu = false; vm.files.logPrintToFilamentProfiles() })
-                if (!r.external && state.scene.plates.size > 1)
+                if (!r.external && state.workspace.scene.plates.size > 1)
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 if (r.external) DropdownMenuItem(text = { Text(stringResource(R.string.close)) }, onClick = { menu = false; vm.slicing.closeExternal() })
             }
@@ -225,7 +225,7 @@ private fun Actions(state: UiState, vm: AppViewModel, r: SliceResult) {
 
 @Composable
 private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
-    val p = state.preview
+    val p = state.slicing.preview
     SectionTitle(stringResource(SCHEMES[p.scheme]))
     when (p.scheme) {
         0 -> {
@@ -242,7 +242,7 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
                 }
             }
         }
-        7 -> state.filaments.forEachIndexed { i, f ->
+        7 -> state.device.filaments.forEachIndexed { i, f ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ColorDot(f.color); Text("${i + 1}: ${f.preset}", style = MaterialTheme.typography.bodySmall)
             }
@@ -268,13 +268,13 @@ private fun Legend(state: UiState, vm: AppViewModel, r: SliceResult) {
 @Composable
 private fun LayerTools(state: UiState, vm: AppViewModel, r: SliceResult) {
     var dialog by remember { mutableStateOf(false) }
-    val layer = r.layers.getOrNull(state.preview.layerHigh) ?: return
+    val layer = r.layers.getOrNull(state.slicing.preview.layerHigh) ?: return
     HorizontalDivider()
-    val count = state.scene.plates.getOrNull(state.previewPlate)?.layerGcodes?.size ?: 0
+    val count = state.workspace.scene.plates.getOrNull(state.slicing.previewPlate)?.layerGcodes?.size ?: 0
     TextButton(onClick = { dialog = true }) {
         Text(stringResource(R.string.add_gcode_at_layer, layer.z) + if (count > 0) " ($count)" else "")
     }
-    if (dialog) LayerGcodeDialog(state, vm, state.previewPlate, layer.z) { dialog = false }
+    if (dialog) LayerGcodeDialog(state, vm, state.slicing.previewPlate, layer.z) { dialog = false }
 }
 
 /**
@@ -291,7 +291,7 @@ private fun GcodeView(state: UiState, r: SliceResult) {
         index = withContext(Dispatchers.IO) { indexLines(r.gcodeFile) }
         data = withContext(Dispatchers.IO) { PreviewData.load(r.previewDir) }
     }
-    val p = state.preview
+    val p = state.slicing.preview
     LaunchedEffect(index, data, p.layerLow, p.layerHigh, p.moveEnd) {
         val idx = index ?: return@LaunchedEffect
         val d = data ?: return@LaunchedEffect

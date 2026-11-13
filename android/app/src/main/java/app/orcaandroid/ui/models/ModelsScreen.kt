@@ -127,7 +127,7 @@ class ModelBrowser(private val context: Context, private val vm: AppViewModel, d
         private set
     /** MakerWorld's printer chip for the current printer preset ("A1", "X1 Carbon", ...), or null when unknown. */
     private fun chipLabel(): String? {
-        val model = vm.state.value.printer?.let(PrinterModel::ofPreset) ?: return null
+        val model = vm.state.value.device.printer?.let(PrinterModel::ofPreset) ?: return null
         return if (model == "X1C") "X1 Carbon" else model
     }
 

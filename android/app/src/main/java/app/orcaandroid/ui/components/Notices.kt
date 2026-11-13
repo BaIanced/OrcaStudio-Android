@@ -60,7 +60,7 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val notices = buildList {
         // Fit first: an oversized object is usually the cause of the slice error below it, and its Fix
         // stayed below the card's scroll fold when listed second (WSA r524, 2026-11-04).
-        state.fitIssue?.let { f ->
+        state.slicing.fitIssue?.let { f ->
             fun mm(v: List<Float>) = v.joinToString(" x ") { kotlin.math.round(it).toInt().toString() }
             val hint = when (f.fix) {
                 "turn" -> R.string.fit_turn
@@ -72,21 +72,21 @@ fun Notices(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
                 Line(stringResource(R.string.fit_size, f.name, mm(f.size), mm(f.bed)), true),
                 Line(stringResource(hint), false, if (f.fix != null) NoticeFix.Fit(f) else null))))
         }
-        if (state.sessionBad) {
+        if (state.chrome.sessionBad) {
             add(Notice("session", stringResource(R.string.session_bad_title), listOf(Line(stringResource(R.string.session_bad_text), true)),
                 buttons = listOf(R.string.session_try_again to { vm.files.retryBadSession() }, R.string.session_discard to { vm.files.discardBadSession() })))
         }
-        state.sliceError?.let { (plate, message) ->
+        state.slicing.sliceError?.let { (plate, message) ->
             add(Notice("slice:$plate:$message", stringResource(R.string.notice_slice_failed, plate + 1),
                 listOf(Line(engineErrorText(message, vm.translator), true, noticeFix(message)))))
         }
-        val result = state.shownResult
-        if (state.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
-            add(Notice("warn:${state.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
+        val result = state.slicing.shownResult
+        if (state.chrome.screen == Screen.PREVIEW && result != null && result.warnings.isNotEmpty()) {
+            add(Notice("warn:${state.slicing.previewPlate}:${result.gcodeFile}:${result.warnings.hashCode()}", stringResource(R.string.notice_slicer_warnings),
                 // Mixed temperatures the user has allowed are only a heads-up (as in the preview panel).
-                result.warnings.map { Line(vm.translator.tr(it), !(state.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
+                result.warnings.map { Line(vm.translator.tr(it), !(state.device.allowMixedTemps && it.startsWith("Selected nozzle temperatures are incompatible")), noticeFix(it)) }))
         }
-        val alerts = state.printerStatus?.alerts.orEmpty()
+        val alerts = state.device.printerStatus?.alerts.orEmpty()
         if (alerts.isNotEmpty()) {
             add(Notice("printer:" + alerts.joinToString { it.code }, stringResource(R.string.notice_printer),
                 alerts.map { Line(it.text ?: stringResource(R.string.printer_error_code, it.display), true) }, NoticeFix.Go(Screen.DEVICE)))

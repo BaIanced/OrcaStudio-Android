@@ -35,14 +35,14 @@ class DeviceController(private val store: Store) {
     lateinit var files: FileController
 
     fun setConnection(connection: PrinterConnection?) {
-        val printer = store.value.printer ?: return
+        val printer = store.value.device.printer ?: return
         settings.setConnection(printer, connection)
-        store.update { it.copy(connection = connection) }
+        store.update { it.copy(device = it.device.copy(connection = connection)) }
     }
 
     /** Loads the saved connection of the printer and the print host its preset names, if any. */
     fun refreshConnection() = store.update { s ->
-        val values = s.presetValues[PresetType.PRINTER].orEmpty()
+        val values = s.device.presetValues[PresetType.PRINTER].orEmpty()
         val host = values["print_host"].orEmpty().trim('"')
         val suggested = if (host.isBlank()) null else PrinterConnection(
             type = HostType.fromId(values["host_type"]),
@@ -50,7 +50,7 @@ class DeviceController(private val store: Store) {
             apiKey = values["printhost_apikey"].orEmpty().trim('"'),
             webUrl = values["print_host_webui"].orEmpty().trim('"'),
         )
-        s.copy(connection = s.printer?.let(settings::connection), suggestedConnection = suggested)
+        s.copy(device = s.device.copy(connection = s.device.printer?.let(settings::connection), suggestedConnection = suggested))
     }
 
     suspend fun testConnection(connection: PrinterConnection): String = withHost(connection) { it.test() }
@@ -59,18 +59,18 @@ class DeviceController(private val store: Store) {
 
     fun startDiscovery() {
         if (discoveryJob?.isActive == true) return
-        store.update { it.copy(discovered = emptyList(), discovering = true) }
+        store.update { it.copy(device = it.device.copy(discovered = emptyList(), discovering = true)) }
         discoveryJob = store.scope.launch {
             withTimeoutOrNull(DISCOVERY_MS) {
-                Discovery(store.app).scan().collect { p -> store.update { it.copy(discovered = it.discovered + p) } }
+                Discovery(store.app).scan().collect { p -> store.update { it.copy(device = it.device.copy(discovered = it.device.discovered + p)) } }
             }
-            store.update { it.copy(discovering = false) }
+            store.update { it.copy(device = it.device.copy(discovering = false)) }
         }
     }
 
     fun stopDiscovery() {
         discoveryJob?.cancel()
-        store.update { it.copy(discovering = false) }
+        store.update { it.copy(device = it.device.copy(discovering = false)) }
     }
 
     /**
@@ -80,16 +80,16 @@ class DeviceController(private val store: Store) {
      */
     fun upload(startPrint: Boolean, confirmed: Boolean = false) = store.launch {
         val s = store.value
-        val result = s.shownResult ?: return@launch
-        val connection = s.connection ?: return@launch
-        if (s.upload is UploadState.Running) return@launch
+        val result = s.slicing.shownResult ?: return@launch
+        val connection = s.device.connection ?: return@launch
+        if (s.device.upload is UploadState.Running) return@launch
         if (!confirmed && !result.external) {
-            PrinterModel.mismatch(s.printer, connection.serial)?.let { (sliced, connected) ->
-                store.update { it.copy(mismatchPrompt = MismatchPrompt(sliced, connected, startPrint)) }
+            PrinterModel.mismatch(s.device.printer, connection.serial)?.let { (sliced, connected) ->
+                store.update { it.copy(device = it.device.copy(mismatchPrompt = MismatchPrompt(sliced, connected, startPrint))) }
                 return@launch
             }
         }
-        store.update { it.copy(upload = UploadState.Running(0f, startPrint), amsPrompt = null) }
+        store.update { it.copy(device = it.device.copy(upload = UploadState.Running(0f, startPrint), amsPrompt = null)) }
         try {
             val bambu = (connection.type == HostType.BAMBU || connection.type == HostType.BAMBU_SIGNED) && !result.external
             // Bambu printers print .gcode.3mf archives.
@@ -100,7 +100,7 @@ class DeviceController(private val store: Store) {
             }
             dispatch(connection, file, name, startPrint, bambu)
         } catch (e: Exception) {
-            store.update { it.copy(upload = null) }
+            store.update { it.copy(device = it.device.copy(upload = null)) }
             throw e
         }
     }
@@ -112,8 +112,8 @@ class DeviceController(private val store: Store) {
             val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
             if (trays.isNotEmpty()) {
                 pendingPrint = file to name
-                val count = maxOf(store.value.filaments.size, used.maxOf { it.id } + 1)
-                store.update { it.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count)) }
+                val count = maxOf(store.value.device.filaments.size, used.maxOf { it.id } + 1)
+                store.update { it.copy(device = it.device.copy(upload = null, amsPrompt = AmsPrompt(used, trays, AmsMapping.auto(used, trays), count))) }
                 return
             }
         }
@@ -122,41 +122,41 @@ class DeviceController(private val store: Store) {
 
     /** Sends a file of the print history again and starts it. */
     fun reprint(entry: PrintHistoryEntry) = store.launch {
-        val connection = store.value.connection ?: return@launch
-        if (store.value.upload is UploadState.Running) return@launch
+        val connection = store.value.device.connection ?: return@launch
+        if (store.value.device.upload is UploadState.Running) return@launch
         val file = store.printHistory.file(entry) ?: return@launch store.toast(store.str(R.string.history_file_missing))
-        store.update { it.copy(upload = UploadState.Running(0f, true), amsPrompt = null) }
+        store.update { it.copy(device = it.device.copy(upload = UploadState.Running(0f, true), amsPrompt = null)) }
         try {
             dispatch(connection, file, entry.sentName, true, entry.sentName.endsWith(".3mf"))
         } catch (e: Exception) {
-            store.update { it.copy(upload = null) }
+            store.update { it.copy(device = it.device.copy(upload = null)) }
             throw e
         }
     }
 
     fun historyThumbnail(entry: PrintHistoryEntry): File? = store.printHistory.thumbnail(entry)
 
-    fun removeHistory(entry: PrintHistoryEntry) = store.update { it.copy(printHistory = store.printHistory.remove(entry)) }
+    fun removeHistory(entry: PrintHistoryEntry) = store.update { it.copy(device = it.device.copy(printHistory = store.printHistory.remove(entry))) }
 
     /** Logs what was just sent, with the sent file for a reprint (reprints themselves are not logged again). */
     private suspend fun logSent(file: File, name: String, startPrint: Boolean) {
         val s = store.value
-        val r = s.shownResult ?: return
+        val r = s.slicing.shownResult ?: return
         if (r.external || file.parentFile?.name == "history") return
         val entry = PrintHistoryEntry(
             id = System.currentTimeMillis().toString(), time = System.currentTimeMillis(), name = files.gcodeFileName().removeSuffix(".gcode"),
-            printer = s.printer.orEmpty(), started = startPrint, seconds = r.printTimeSeconds, grams = r.filamentGrams, cost = r.cost,
-            filaments = s.filaments.map { it.preset }, fileName = "", sentName = name, thumbnail = null,
+            printer = s.device.printer.orEmpty(), started = startPrint, seconds = r.printTimeSeconds, grams = r.filamentGrams, cost = r.cost,
+            filaments = s.device.filaments.map { it.preset }, fileName = "", sentName = name, thumbnail = null,
         )
         val all = withContext(Dispatchers.IO) { runCatching { store.printHistory.add(entry, file) }.getOrNull() } ?: return
-        store.update { it.copy(printHistory = all) }
+        store.update { it.copy(device = it.device.copy(printHistory = all)) }
     }
 
-    fun dismissMismatch() = store.update { it.copy(mismatchPrompt = null) }
+    fun dismissMismatch() = store.update { it.copy(device = it.device.copy(mismatchPrompt = null)) }
 
     /** Sends anyway after the user confirmed the model warning. */
     fun confirmMismatch() {
-        val prompt = store.value.mismatchPrompt ?: return
+        val prompt = store.value.device.mismatchPrompt ?: return
         dismissMismatch()
         upload(prompt.startPrint, confirmed = true)
     }
@@ -166,59 +166,59 @@ class DeviceController(private val store: Store) {
 
     /** Starts the print waiting in [UiState.amsPrompt] with [choice] (filament slot → tray). */
     fun confirmPrint(choice: Map<Int, PrinterTray>) = store.launch {
-        val prompt = store.value.amsPrompt ?: return@launch
-        val connection = store.value.connection ?: return@launch
+        val prompt = store.value.device.amsPrompt ?: return@launch
+        val connection = store.value.device.connection ?: return@launch
         val (file, name) = pendingPrint ?: return@launch
         pendingPrint = null
-        store.update { it.copy(amsPrompt = null, upload = UploadState.Running(0f, true)) }
+        store.update { it.copy(device = it.device.copy(amsPrompt = null, upload = UploadState.Running(0f, true))) }
         try {
             send(connection, file, name, true, AmsMapping(prompt.filamentCount, choice))
         } catch (e: Exception) {
-            store.update { it.copy(upload = null) }
+            store.update { it.copy(device = it.device.copy(upload = null)) }
             throw e
         }
     }
 
     fun cancelPrint() {
         pendingPrint = null
-        store.update { it.copy(amsPrompt = null) }
+        store.update { it.copy(device = it.device.copy(amsPrompt = null)) }
     }
 
     private suspend fun send(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, ams: AmsMapping?) {
         withHost(connection) { host ->
-            host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(upload = UploadState.Running(p, startPrint)) } }
+            host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(device = it.device.copy(upload = UploadState.Running(p, startPrint))) } }
         }
         logSent(file, name, startPrint)
-        if (!store.value.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(coachDismissed = true) } }
-        store.update { it.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer))) }
+        if (!store.value.chrome.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) } }
+        store.update { it.copy(device = it.device.copy(upload = UploadState.Done(store.str(if (startPrint) R.string.print_started else R.string.sent_to_printer)))) }
         if (startPrint) monitorPrinter()
     }
 
     /** Shows the print progress as a notification (foreground service). */
-    fun monitorPrinter() = store.value.printer?.let { runCatching { PrintMonitorService.start(store.app, it) } }
+    fun monitorPrinter() = store.value.device.printer?.let { runCatching { PrintMonitorService.start(store.app, it) } }
 
     fun controlJob(action: PrintHost.JobAction) = store.launch {
-        val connection = store.value.connection ?: return@launch
+        val connection = store.value.device.connection ?: return@launch
         withHost(connection) { it.control(action) }
         refreshStatus()
     }
 
     /** Sends a manual control (temperature, speed, fan, light, jog); the status poll shows the printer's report of it. */
     fun sendControl(control: PrinterControl) = store.launch {
-        val connection = store.value.connection ?: return@launch
+        val connection = store.value.device.connection ?: return@launch
         val result = runCatching {
             withHost(connection) { host ->
                 control.print?.let { host.command(it) }
                 control.system?.let { host.systemCommand(it) }
             }
         }
-        store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+        store.update { it.copy(device = it.device.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() })) }
     }
 
     /** Answers the printer's prompt for [alert] with one of its buttons, as the desktop's error dialog does. */
     fun answerAlert(alert: PrinterAlert, button: Int) = store.launch {
-        val connection = store.value.connection ?: return@launch
-        val status = store.value.printerStatus ?: return@launch
+        val connection = store.value.device.connection ?: return@launch
+        val status = store.value.device.printerStatus ?: return@launch
         val command = BambuReport.alertCommand(button, alert, status) ?: return@launch
         withHost(connection) { it.command(command) }
         refreshStatus()
@@ -251,15 +251,15 @@ class DeviceController(private val store: Store) {
     }
 
     private suspend fun refreshNow() {
-        val connection = store.value.connection ?: return
+        val connection = store.value.device.connection ?: return
         val result = withHost(connection) { host -> runCatching { host.status()?.let { HmsCatalog.describe(store.app, connection.serial, it) } } }
         store.container.printerStatus.value = result.getOrNull()
-        store.update { it.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() }) }
+        store.update { it.copy(device = it.device.copy(printerStatusError = result.exceptionOrNull()?.let { e -> e.message ?: e.toString() })) }
     }
 
     /** The filaments loaded in the connected printer (AMS slots, external spool), from a full report. */
     suspend fun loadedFilaments(): List<PrinterTray> {
-        val connection = store.value.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
+        val connection = store.value.device.connection?.takeIf { it.type == HostType.BAMBU || it.type == HostType.BAMBU_SIGNED }
             ?: throw IOException(store.str(R.string.sync_filaments_no_bambu))
         return withHost(connection) { it.fullStatus()?.trays.orEmpty() }
     }

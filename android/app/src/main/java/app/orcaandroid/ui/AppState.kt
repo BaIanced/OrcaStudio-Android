@@ -152,16 +152,16 @@ data class PreviewUi(
     val showGcode: Boolean = false,
 )
 
-data class UiState(
-    val phase: Phase = Phase.LOADING,
-    val busy: String? = null,
-    /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
-    val busyCancel: (() -> Unit)? = null,
-    val error: String? = null,
-    val message: String? = null,
-    val messageAction: MessageAction? = null,
-    /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
-    val modelsUrl: String? = null,
+/** Scene and workspace fields of [UiState], read as `state.workspace.x`. */
+data class SceneState(
+    val scene: Scene = Scene(),
+    val activePlate: Int = 0,
+    val selection: Selection? = null,
+    /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
+    val multiSelection: List<Selection> = emptyList(),
+    /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
+    val selectMode: Boolean = false,
+    val tool: Tool = Tool.None,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     /**
@@ -173,24 +173,15 @@ data class UiState(
     val rotateFor: Selection? = null,
     /** An add dialog asked for by a shortcut ("text" for T), shown by the 3D view's context menu host. */
     val addDialog: String? = null,
-    val screen: Screen = Screen.PREPARE,
-    val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = false,
-    val themeSpec: app.orcaandroid.core.ThemeSpec = app.orcaandroid.core.ThemeSpec(),
-    /** The floating colour panel is open over the app (design mode). */
-    val designMode: Boolean = false,
-    val doubleBackToQuit: Boolean = false,
-    /** Slice the active plate in the background once edits pause (G4). */
-    val autoSlice: Boolean = true,
-    val coachDismissed: Boolean = true,
-    /** The last slice's change against the plate's slice before it, while that result is current. */
-    val sliceDelta: SliceDelta? = null,
+    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
+    val snapPrepare: Boolean = false,
+    /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
+    val moveLock: Int = -1,
+    /** View > Light direction: the light ball panel is open (session only). */
+    val lightPanel: Boolean = false,
+    /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
+    val dimensions: Boolean = false,
     val pen: app.orcaandroid.core.PenConfig = app.orcaandroid.core.PenConfig(),
-    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
-    val projectFilaments: String = "ask",
-    val filamentChoice: FilamentChoice? = null,
-    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
-    val projectOrImport: String? = null,
     /** 3D view contact shadows. */
     val contactShadows: Boolean = true,
     /** 3D view realistic render mode (physically based shading, studio lighting). */
@@ -205,81 +196,20 @@ data class UiState(
     val selectionStyle: Int = app.orcaandroid.render.SelectionStyle.DEFAULT,
     /** Preview supersampling ([app.orcaandroid.render.Supersample]). */
     val supersample: Int = app.orcaandroid.render.Supersample.STILL,
-    /** Body drags snap (smart guides) on the plate / in the Build workspace; Ctrl held flips it for one drag. */
-    val snapPrepare: Boolean = false,
-    val snapBuild: Boolean = true,
-    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
-    val buildOthers: Int = 0,
-    /** Build workspace: the printer volume ghost under the object. */
-    val buildPrinter: Boolean = true,
-    /** The move lock button: -1 free, 0 drags move along X only, 1 along Y only (session only). */
-    val moveLock: Int = -1,
-    /** Add menu: separate code and shape builder rows (else one "Design" row). */
-    val builderSplit: Boolean = false,
     /** 3D view projection: perspective, or orthographic when false. */
     val perspective: Boolean = true,
-    val lab: app.orcaandroid.core.LayoutLab = app.orcaandroid.core.LayoutLab(),
-    /** View > Light direction: the light ball panel is open (session only). */
-    val lightPanel: Boolean = false,
-    /** View > Dimensions: X / Y / Z size lines on the selection's box (session only). */
-    val dimensions: Boolean = false,
-    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
-    /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
-    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
-    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
-    val aiTools: Boolean = false,
-    val aiToken: String = "",
-    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
-    val aiToolsLan: Boolean = false,
-    val aiAddresses: List<String> = emptyList(),
-    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
-    val aiConfirm: String? = null,
-    /** Why the server isn't running although switched on (port taken, ...). */
-    val aiError: String? = null,
+    /** Pinch zoom speed: exponent on the fingers' gap ratio (More > Controls). */
+    val pinchSpeed: Float = app.orcaandroid.core.ViewDefaults.PINCH_SPEED,
+    /** Wheel / touchpad / thumbstick zoom speed: exponent on the 15 % per notch (More > Controls). */
+    val wheelSpeed: Float = app.orcaandroid.core.ViewDefaults.WHEEL_SPEED,
+    /** Plates drawn dark with upstream's bed-type decals. */
+    val plateHd: Boolean = false,
+    /** Detailed plate opacity seen from below (More > Appearance). */
+    val plateUnderAlpha: Float = app.orcaandroid.core.ViewDefaults.PLATE_UNDER_ALPHA,
+    /** Key light direction of the 3D models, set by the view menu's light ball (removable after lighting review, UA-7). */
+    val lightAzimuth: Float = app.orcaandroid.core.ViewDefaults.LIGHT_AZIMUTH,
+    val lightElevation: Float = app.orcaandroid.core.ViewDefaults.LIGHT_ELEVATION,
 
-    // Printers and presets
-    val vendors: List<Vendor> = emptyList(),
-    val selectedPrinters: Set<String> = emptySet(),
-    val printers: List<PrinterInfo> = emptyList(),
-    val printer: String? = null,
-    val setup: PrinterSetup? = null,
-    val print: String? = null,
-    val filaments: List<FilamentSlot> = emptyList(),
-    /** Filament slot shown in the settings editor. */
-    val activeFilament: Int = 0,
-    /** Option values of the selected presets (filament: of the active slot). */
-    val presetValues: Map<PresetType, Map<String, String>> = emptyMap(),
-    /** Unsaved edits of the process and printer presets (filament edits live in the slots). */
-    val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
-    val optionStates: OptionStates = OptionStates(),
-    val hiddenFilamentVendors: Set<String> = emptySet(),
-    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
-    val pinnedSettings: List<String> = emptyList(),
-    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
-    val hiddenBedTypes: Set<String> = emptySet(),
-    val preferredBedType: String = "",
-    /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
-    val preferMyFilaments: Boolean = true,
-    val allowMixedTemps: Boolean = false,
-    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
-    val dangerAllowed: Set<String> = emptySet(),
-    val expertSettings: Boolean = false,
-    /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
-    val matchNozzle: Boolean = true,
-    val filamentTiles: Boolean = true,
-    val installedNozzles: Map<String, Float> = emptyMap(),
-    val editor: EditorTarget? = null,
-    val showPrinterSetup: Boolean = false,
-
-    // Scene
-    val scene: Scene = Scene(),
-    val activePlate: Int = 0,
-    val selection: Selection? = null,
-    /** Two or more copies selected together (Ctrl/Shift click, select mode); [selection] is null then. */
-    val multiSelection: List<Selection> = emptyList(),
-    /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
-    val selectMode: Boolean = false,
-    val tool: Tool = Tool.None,
     /** Measure tool: the placed points (at most 2). */
     val measure: List<MeasurePoint> = emptyList(),
     /** Measure tool: points snap to corners and edges (off: the bare hit; Alt held does the same for one click). */
@@ -308,22 +238,150 @@ data class UiState(
     val nameBeforeCalibration: String? = null,
     /** Unsaved changes since the project was opened/saved. */
     val projectDirty: Boolean = false,
+) {
+    val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
 
-    // Slicing and preview
+    /** Every selected copy: the multi-selection, else the single selection. */
+    val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
+
+    /** Corner resizing is on for the lone selected copy. */
+    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
+
+    /** The rotate gizmo is on for the lone selected copy. */
+    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
+
+    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
+    fun withSelected(items: List<Selection>) = copy(
+        selection = items.singleOrNull(),
+        multiSelection = if (items.size > 1) items else emptyList(),
+        tool = if (items.size == 1) tool else Tool.None,
+    )
+
+    /** Adds [items] to the selection, or removes them when all of them are selected already. */
+    fun toggled(items: List<Selection>): SceneState {
+        val current = selectedItems.map { it.copy(volume = -1) }
+        val keys = items.map { it.copy(volume = -1) }
+        return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
+    }
+
+    /**
+     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
+     * and the direction it locks to, if any.
+     */
+    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
+        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
+        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
+        return Triple(a, b, measureLock(a, b, measureAxes, steps))
+    }
+}
+
+/** Design (OpenSCAD / shape builder) fields of [UiState], read as `state.design.x`. */
+data class DesignState(
+    /** The OpenSCAD editor, while open. */
+    val scad: ScadEditorState? = null,
+    /** On narrow screens: the editor is folded away to show the plate ("Hide editor"). */
+    val scadHidden: Boolean = false,
+    /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
+    val scadOnPlate: Boolean = false,
+    val snapBuild: Boolean = true,
+    /** The plate's other objects in the Build workspace: 0 ghosted, 1 solid, 2 hidden. */
+    val buildOthers: Int = 0,
+    /** Build workspace: the printer volume ghost under the object. */
+    val buildPrinter: Boolean = true,
+)
+
+/** Slicing and preview fields of [UiState], read as `state.slicing.x`. */
+data class SliceState(
     val slice: SliceStatus = SliceStatus.Idle,
     val results: Map<Int, SliceResult> = emptyMap(),
     /** Why the last slice failed (plate, message), shown on the 3D view (Notices); cleared by the next slice. */
     val sliceError: Pair<Int, String>? = null,
     /** A copy that doesn't fit the printer (checked on leaving the builder and on a slice with nothing inside), shown in Notices. */
     val fitIssue: app.orcaandroid.core.FitIssue? = null,
-    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
-    val sessionBad: Boolean = false,
     val previewPlate: Int = 0,
     /** An opened external G-code file (preview only). */
     val external: SliceResult? = null,
     val preview: PreviewUi = PreviewUi(),
+    /** The last slice's change against the plate's slice before it, while that result is current. */
+    val sliceDelta: SliceDelta? = null,
+    /** Slice the active plate in the background once edits pause (G4). */
+    val autoSlice: Boolean = true,
+) {
+    /** The result shown in the preview (external G-code or the preview plate's slice). */
+    val shownResult: SliceResult? get() = external ?: results[previewPlate]
 
-    // Device
+    /** A slice the user waits for (not a background auto-slice). */
+    val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
+}
+
+/** App chrome fields of [UiState] (notices, dialogs, navigation, theme, AI server), read as `state.chrome.x`. */
+data class ChromeState(
+    val phase: Phase = Phase.LOADING,
+    val busy: String? = null,
+    /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
+    val busyCancel: (() -> Unit)? = null,
+    val error: String? = null,
+    val message: String? = null,
+    val messageAction: MessageAction? = null,
+    /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */
+    val modelsUrl: String? = null,
+    val screen: Screen = Screen.PREPARE,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val dynamicColor: Boolean = false,
+    val themeSpec: app.orcaandroid.core.ThemeSpec = app.orcaandroid.core.ThemeSpec(),
+    /** The floating colour panel is open over the app (design mode). */
+    val designMode: Boolean = false,
+    val doubleBackToQuit: Boolean = false,
+    val coachDismissed: Boolean = true,
+    val filamentChoice: FilamentChoice? = null,
+    /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */
+    val projectOrImport: String? = null,
+    /** Interface size, one of [app.orcaandroid.core.ViewDefaults.INTERFACE_SIZES] (More > Appearance). */
+    val interfaceSize: Float = app.orcaandroid.core.ViewDefaults.INTERFACE_SIZE,
+    /** The plate switcher shows over the 3D view. */
+    val showPlates: Boolean = true,
+    /** Wide layouts: the settings panel is tucked away to a thin edge, and its width in dp (0 = default), both set by dragging its edge. */
+    val panelTucked: Boolean = false,
+    val panelWidth: Float = 0f,
+    /** The floating Slice button's spot, as fractions of the free room (-1 = bottom right), set by dragging it. */
+    val sliceSpot: Pair<Float, Float> = -1f to -1f,
+    /** Layout values (More > Appearance), see [app.orcaandroid.core.ViewDefaults] for defaults and ranges. */
+    val overlayAlpha: Float = app.orcaandroid.core.ViewDefaults.OVERLAY_ALPHA,
+    val plateScale: Float = app.orcaandroid.core.ViewDefaults.PLATE_SCALE,
+    val overlayScale: Float = app.orcaandroid.core.ViewDefaults.OVERLAY_SCALE,
+    val sliceScale: Float = app.orcaandroid.core.ViewDefaults.SLICE_SCALE,
+    val textScale: Float = app.orcaandroid.core.ViewDefaults.TEXT_SCALE,
+    val fullscreenPortrait: Boolean = app.orcaandroid.core.ViewDefaults.FULLSCREEN_PORTRAIT,
+    val plates: app.orcaandroid.core.PlateSwitcher = app.orcaandroid.core.ViewDefaults.PLATES,
+    val platesOnHandle: Boolean = app.orcaandroid.core.ViewDefaults.PLATES_ON_HANDLE,
+    val toolsLeft: Boolean = app.orcaandroid.core.ViewDefaults.TOOLS_LEFT,
+    /** Portrait tool row: collapsed to the + button (long press), and its dragged offset in dp (-1 = default), set by gestures. */
+    val toolsCollapsed: Boolean = app.orcaandroid.core.ViewDefaults.TOOLS_COLLAPSED,
+    val toolsRow: Pair<Float, Float> = app.orcaandroid.core.ViewDefaults.TOOLS_ROW_X to app.orcaandroid.core.ViewDefaults.TOOLS_ROW_Y,
+    val undoLimit: Int = app.orcaandroid.core.DEFAULT_UNDO_LIMIT,
+    /** Auto-save interval in seconds; 0 or less = off (-seconds keeps the interval it had). */
+    val autoSaveSeconds: Int = app.orcaandroid.core.DEFAULT_AUTO_SAVE_SECONDS,
+    /** The MCP server for AI clients is switched on; [aiToken] is what they must send. */
+    val aiTools: Boolean = false,
+    val aiToken: String = "",
+    /** It also listens on the local network; [aiAddresses] are this device's addresses there. */
+    val aiToolsLan: Boolean = false,
+    val aiAddresses: List<String> = emptyList(),
+    /** What an AI tool asks the user to allow (shown as a dialog), or null. */
+    val aiConfirm: String? = null,
+    /** Why the server isn't running although switched on (port taken, ...). */
+    val aiError: String? = null,
+    val editor: EditorTarget? = null,
+    val showPrinterSetup: Boolean = false,
+    /** The last session could not be opened and was kept aside; Notices offers Try again / Discard. */
+    val sessionBad: Boolean = false,
+    val recents: List<RecentFile> = emptyList(),
+    /** Report of a crash that closed the app last time (see CrashReport). */
+    val crashReport: String? = null,
+)
+
+/** Printer link, jobs and preset policy fields of [UiState], read as `state.device.x`. */
+data class DeviceState(
     val connection: PrinterConnection? = null,
     val suggestedConnection: PrinterConnection? = null,
     val upload: UploadState? = null,
@@ -334,22 +392,43 @@ data class UiState(
     val printerStatusError: String? = null,
     val discovered: List<DiscoveredPrinter> = emptyList(),
     val discovering: Boolean = false,
-
-    // Files and updates
-    val recents: List<RecentFile> = emptyList(),
     /** Files sent to a printer, newest first (Device tab). */
     val printHistory: List<PrintHistoryEntry> = emptyList(),
+    /** Option values of the selected presets (filament: of the active slot). */
+    val presetValues: Map<PresetType, Map<String, String>> = emptyMap(),
+    /** Unsaved edits of the process and printer presets (filament edits live in the slots). */
+    val overrides: Map<PresetType, Map<String, String>> = emptyMap(),
+    val optionStates: OptionStates = OptionStates(),
+    val hiddenFilamentVendors: Set<String> = emptySet(),
+    /** Process option keys shown on the main view under the process picker (see AppSettings.pinnedSettings). */
+    val pinnedSettings: List<String> = emptyList(),
+    /** Plate types left out of the plate type pickers, and the user's default one ("" = the printer's). */
+    val hiddenBedTypes: Set<String> = emptySet(),
+    val preferredBedType: String = "",
+    /** AMS sync and new slots take the user's own filament preset saved from a system one (switchable). */
+    val preferMyFilaments: Boolean = true,
+    val allowMixedTemps: Boolean = false,
+    /** Risky-setting rules allowed for good, and whether every slicer option shows (More > Expert settings). */
+    val dangerAllowed: Set<String> = emptySet(),
+    val expertSettings: Boolean = false,
+    /** Printer presets with another nozzle than the model's [installedNozzles] entry are hidden (switchable). */
+    val matchNozzle: Boolean = true,
+    val filamentTiles: Boolean = true,
+    val installedNozzles: Map<String, Float> = emptyMap(),
+    /** What an opened project does to the filament slots ("ask", "project", "mine") and the question being asked. */
+    val projectFilaments: String = "ask",
     val profileUpdates: List<ResourceStore.ProfileUpdate>? = null,
     /** Progress text while profile updates install in the background; null when idle. */
     val profileUpdateProgress: String? = null,
-    /** Report of a crash that closed the app last time (see CrashReport). */
-    val crashReport: String? = null,
-    /** The OpenSCAD editor, while open. */
-    val scad: ScadEditorState? = null,
-    /** On narrow screens: the editor is folded away to show the plate ("Hide editor"). */
-    val scadHidden: Boolean = false,
-    /** The OpenSCAD design is shown on the active plate (eye toggle) instead of alone in the design view. */
-    val scadOnPlate: Boolean = false,
+    val vendors: List<Vendor> = emptyList(),
+    val selectedPrinters: Set<String> = emptySet(),
+    val printers: List<PrinterInfo> = emptyList(),
+    val printer: String? = null,
+    val setup: PrinterSetup? = null,
+    val print: String? = null,
+    val filaments: List<FilamentSlot> = emptyList(),
+    /** Filament slot shown in the settings editor. */
+    val activeFilament: Int = 0,
 ) {
     fun presetName(type: PresetType) = when (type) {
         PresetType.PRINT -> print
@@ -378,52 +457,8 @@ data class UiState(
     /** The selected printer preset's nozzle differs from the one installed in that printer, which is [Float]. */
     val nozzleMismatch: Float? get() = printerInfo?.takeIf { !nozzleFits(it) }?.let { installedNozzles[it.model] }
 
-    val selectedObject get() = selection?.let { scene.objects.getOrNull(it.obj) }
-
-    /**
-     * The measure line's two ends as drawn (the last placed point and the loupe's preview, else the two placed points)
-     * and the direction it locks to, if any.
-     */
-    val measureLine: Triple<MeasurePoint, MeasurePoint, MeasureLock?>? get() {
-        val (a, b) = (measure + listOfNotNull(loupe?.preview)).takeLast(2).takeIf { it.size == 2 } ?: return null
-        val steps = measureSteps || measureShift || (loupe?.preview == null && measureShiftPlaced)
-        return Triple(a, b, measureLock(a, b, measureAxes, steps))
-    }
-
-    /** Every selected copy: the multi-selection, else the single selection. */
-    val selectedItems: List<Selection> get() = multiSelection.ifEmpty { listOfNotNull(selection) }
-
-    /** Corner resizing is on for the lone selected copy. */
-    val resizing: Boolean get() = resizeFor != null && selectedItems.singleOrNull() == resizeFor
-
-    /** The rotate gizmo is on for the lone selected copy. */
-    val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
-
-    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
-    fun withSelected(items: List<Selection>) = copy(
-        selection = items.singleOrNull(),
-        multiSelection = if (items.size > 1) items else emptyList(),
-        tool = if (items.size == 1) tool else Tool.None,
-    )
-
-    /** Adds [items] to the selection, or removes them when all of them are selected already. */
-    fun toggled(items: List<Selection>): UiState {
-        val current = selectedItems.map { it.copy(volume = -1) }
-        val keys = items.map { it.copy(volume = -1) }
-        return withSelected(if (keys.all { it in current }) current - keys.toSet() else current + keys.filterNot { it in current })
-    }
-
-    /** The result shown in the preview (external G-code or the preview plate's slice). */
-    val shownResult: SliceResult? get() = external ?: results[previewPlate]
-
-    /** A slice the user waits for (not a background auto-slice). */
-    val isSlicing get() = (slice as? SliceStatus.Running)?.background == false
-
     /** Process options printers without multiple plate types never see. */
     val supportsBedTypes get() = setup?.bedTypes?.isNotEmpty() == true
-
-    /** Plate type [plate] slices with: its own, else the default. */
-    fun bedTypeOf(plate: Int): String? = scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: setup?.defaultBedType
 
     /** Plate types the pickers offer: the visible ones, plus [current] even when hidden. */
     fun bedTypeChoices(current: String?): List<String> = setup?.bedTypes.orEmpty().filter { it !in hiddenBedTypes || it == current }
@@ -431,6 +466,23 @@ data class UiState(
     val selectedPrinterKeys get() = printers.filter { it.name == printer }.map { printerKey(it.model, it.nozzle) }
 
     val printerInfo: PrinterInfo? get() = printers.firstOrNull { it.name == printer }
+}
+
+data class UiState(
+    val workspace: SceneState = SceneState(),
+    val design: DesignState = DesignState(),
+    val slicing: SliceState = SliceState(),
+    val chrome: ChromeState = ChromeState(),
+    val device: DeviceState = DeviceState(),
+) {
+    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
+    fun withSelected(items: List<Selection>) = copy(workspace = workspace.withSelected(items))
+
+    /** Adds [items] to the selection, or removes them when all of them are selected already. */
+    fun toggled(items: List<Selection>) = copy(workspace = workspace.toggled(items))
+
+    /** Plate type [plate] slices with: its own, else the default. */
+    fun bedTypeOf(plate: Int): String? = workspace.scene.plates.getOrNull(plate)?.bedType?.ifEmpty { null } ?: device.setup?.defaultBedType
 }
 
 /** A project came with filaments that differ from the app's: the user picks which slots to keep. */
