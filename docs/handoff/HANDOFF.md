@@ -46,7 +46,8 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - T-034 done 162bb71 (CK compile/test rc 0, 313 tests; VD numbers from the subagent, orchestrator did not re-drive the device; Shrink native op untested until a CI build, axis colours not seen on screen).
 - T-035 done (316 tests; WSA VD 3.00 -> 3.40 -> Undo 3.00, subagent-measured; no face-normal test, backlog candidate: native change to send face normals).
 - T-036 done e0f54e8 (compile + tests rc 0; VD unlabeled nodes 1/1/2/1/1 -> 0 on 5 screens, subagent-measured; Open top / Repeat / Cut checkboxes code-only, not on device; helper scripts in orca-android-tools/t036).
-- Next step: next open task after T-036 (T-037) in `docs/audit/MASTER-PLAN.md` (check its depends-on; /clear first, context 72k).
+- T-037 done a8ca8e8 (compile+tests rc 0; VD: no address outside Details, Already arranged/oriented, Undone; Redo notice and empty-stack Undo not device-checked).
+- Next step: next open task after T-037 (T-038 needs UA-8, rename decision: ask user; else T-039 waits on it) in `docs/audit/MASTER-PLAN.md` (check its depends-on; /clear first, context 72k).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
