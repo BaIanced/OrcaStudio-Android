@@ -213,6 +213,7 @@ fun NumberField(
     suffix: String? = null,
     decimals: Int = 2,
     live: Boolean = false,
+    labelColor: androidx.compose.ui.graphics.Color = androidx.compose.ui.graphics.Color.Unspecified,
 ) {
     val formatted = "%.${decimals}f".format(Locale.ROOT, value + 0f)
         .let { if (it.contains('.')) it.trimEnd('0').trimEnd('.') else it }
@@ -228,7 +229,7 @@ fun NumberField(
         // live: every valid edit is committed at once, for dialogs whose confirm button reads the
         // value (a tap on it does not reliably move the focus first).
         onValueChange = { text = it; if (live) commit() },
-        label = label?.let { { Text(it, maxLines = 1) } },
+        label = label?.let { { Text(it, maxLines = 1, color = labelColor) } },
         suffix = suffix?.let { { Text(it) } },
         singleLine = true,
         isError = parseNumber(text) == null,
@@ -242,15 +243,17 @@ fun NumberField(
 @Composable
 fun Vec3Fields(
     label: String, x: Float, y: Float, z: Float, suffix: String, onCommit: (Float, Float, Float) -> Unit,
-    decimals: Int = 2, live: Boolean = false,
+    decimals: Int = 2, live: Boolean = false, axisColours: Boolean = false,
 ) {
     // The unit goes in the row label: three narrow fields cut off values like "115.09" next to a suffix.
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("$label ($suffix)", style = MaterialTheme.typography.labelMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", null, decimals, live)
-            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", null, decimals, live)
-            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", null, decimals, live)
+            // Axis names in the plate gizmo's colours (X red, Y green, Z blue).
+            val unset = androidx.compose.ui.graphics.Color.Unspecified
+            NumberField(x, { onCommit(it, y, z) }, Modifier.weight(1f), "X", null, decimals, live, if (axisColours) app.orcaandroid.ui.theme.AXIS_X else unset)
+            NumberField(y, { onCommit(x, it, z) }, Modifier.weight(1f), "Y", null, decimals, live, if (axisColours) app.orcaandroid.ui.theme.AXIS_Y else unset)
+            NumberField(z, { onCommit(x, y, it) }, Modifier.weight(1f), "Z", null, decimals, live, if (axisColours) app.orcaandroid.ui.theme.AXIS_Z else unset)
         }
     }
 }

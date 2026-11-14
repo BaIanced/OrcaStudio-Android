@@ -509,7 +509,6 @@
     <string name="fp_no_usage">Dieser G-code enthält keinen Filamentverbrauch.</string>
 
     <!-- OpenSCAD editor -->
-    <string name="add_openscad">OpenSCAD-Modell</string>
     <string name="scad_code">Code</string>
     <string name="scad_customizer">Customizer</string>
     <string name="scad_parameters">Parameter</string>
@@ -527,7 +526,6 @@
     <string name="scad_new">Neu aus Vorlage</string>
     <string name="scad_open">.scad-Datei öffnen</string>
     <string name="scad_save">.scad-Datei speichern</string>
-    <string name="scad_close">Editor schließen</string>
     <string name="scad_hide_editor">Editor ausblenden</string>
     <string name="scad_on_plate">Entwurf auf der Platte zeigen</string>
     <string name="scad_off_plate">Zurück zur Entwurfsansicht</string>

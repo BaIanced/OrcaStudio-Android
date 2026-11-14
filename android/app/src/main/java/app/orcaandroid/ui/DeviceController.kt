@@ -109,7 +109,9 @@ class DeviceController(private val store: Store) {
     private suspend fun dispatch(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, bambu: Boolean) {
         if (startPrint && bambu) {
             val used = withContext(Dispatchers.IO) { AmsMapping.usedFilaments(file) }
-            val trays = if (used.isEmpty()) emptyList() else withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+            val trays = if (used.isEmpty()) emptyList() else try {
+                withHost(connection) { it.fullStatus()?.trays.orEmpty() }
+            } catch (e: IOException) { throw PrinterFailure(e) }
             if (trays.isNotEmpty()) {
                 pendingPrint = file to name
                 val count = maxOf(store.value.device.filaments.size, used.maxOf { it.id } + 1)
@@ -185,8 +187,12 @@ class DeviceController(private val store: Store) {
     }
 
     private suspend fun send(connection: PrinterConnection, file: File, name: String, startPrint: Boolean, ams: AmsMapping?) {
-        withHost(connection) { host ->
-            host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(device = it.device.copy(upload = UploadState.Running(p, startPrint))) } }
+        try {
+            withHost(connection) { host ->
+                host.upload(file, name, startPrint, ams) { p -> store.update { it.copy(device = it.device.copy(upload = UploadState.Running(p, startPrint))) } }
+            }
+        } catch (e: IOException) {
+            throw PrinterFailure(e)
         }
         logSent(file, name, startPrint)
         if (!store.value.chrome.coachDismissed) { store.settings.coachDismissed = true; store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) } }
@@ -286,3 +292,33 @@ class DeviceController(private val store: Store) {
         const val POLL_MS = 1_000L
     }
 }
+
+/**
+ * A print / send that failed. [unreachable]: the printer could not be reached at all (off, on another network), so the UI
+ * shows "The printer did not answer" and the Wi-Fi hint. Any other cause keeps its own sentence (a refused access code, a
+ * missing serial number), unless that holds raw text ([hasRawNetworkText]): then a plain sentence, the text under "Details".
+ */
+class PrinterFailure(cause: IOException) : Exception(cause.message ?: cause.toString(), cause) {
+    val unreachable = printerUnreachable(cause)
+}
+
+/** Whether [e] (or what caused it) says that nothing answered at the printer's address: no route, refused, timed out. */
+internal fun printerUnreachable(e: Throwable): Boolean {
+    var t: Throwable? = e
+    repeat(5) {
+        val x = t ?: return false
+        if (x is java.net.ConnectException || x is java.net.NoRouteToHostException || x is java.net.SocketTimeoutException ||
+            x is java.net.UnknownHostException || x is java.net.PortUnreachableException) return true
+        val m = x.message.orEmpty()
+        if (UNREACHABLE_MARKS.any { m.contains(it, ignoreCase = true) }) return true
+        t = x.cause
+    }
+    return false
+}
+
+private val UNREACHABLE_MARKS = listOf("did not answer", "EHOSTUNREACH", "ENETUNREACH", "ECONNREFUSED", "ETIMEDOUT", "failed to connect", "timed out")
+
+/** Text that belongs under "Details", not in a sentence: an address, a URL, a port, an errno name, a library or protocol code. */
+internal fun hasRawNetworkText(text: String) = RAW_NETWORK_TEXT.containsMatchIn(text)
+
+private val RAW_NETWORK_TEXT = Regex("""\d+\.\d+\.\d+|://|:\d{2,5}\b|\bE[A-Z]{5,}\b|\(obn |\bFTP: |\bHTTP \d""")

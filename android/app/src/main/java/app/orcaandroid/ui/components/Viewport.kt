@@ -171,6 +171,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val meshEditSel by vm.scene.meshEditSel.collectAsState()
     // Live size (mm) beside the finger while a box corner is dragged: text, view x, y.
     var resizeLabel by remember { mutableStateOf<Triple<String, Float, Float>?>(null) }
+    // Grab's live label: the finger's view x, y and the stroke's screen direction (degrees), and the distance from the engine.
+    var grabFinger by remember { mutableStateOf<Triple<Float, Float, Float>?>(null) }
+    val grabMm by vm.scene.grabReading.collectAsState()
     Box(modifier) {
     AndroidView(
         factory = { ctx ->
@@ -341,6 +344,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     private var strokeStart = 0f to 0f
                     override fun onPaint(x: Float, y: Float, newStroke: Boolean, pressure: Float) {
                         if (newStroke) strokeStart = x to y
+                        // Only where to draw the Grab label and which way its arrow points; its number comes from the engine.
+                        grabFinger = Triple(x, y, Math.toDegrees(kotlin.math.atan2((y - strokeStart.second).toDouble(), (x - strokeStart.first).toDouble())).toFloat())
                         if (vm.state.value.workspace.tool is Tool.Sculpt) {
                             val (o, d) = v.camera.ray(x, y)
                             vm.scene.sculptAt(o, d, newStroke, pressure)
@@ -539,6 +544,9 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
             }
         }
     }
+    grabMm?.let { mm -> grabFinger?.let { (fx, fy, angle) ->
+        LiveLabel(mm, "mm", -1, angle, null, Modifier.fillMaxSize().liveLabelAt(fx, fy))
+    } }
     val label = resizeLabel
     if (label != null) {
         androidx.compose.material3.Surface(Modifier.align(androidx.compose.ui.Alignment.TopCenter).padding(top = 72.dp), shape = MaterialTheme.shapes.small, tonalElevation = 4.dp) {
@@ -581,6 +589,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val labelStyle = MaterialTheme.typography.labelLarge.copy(color = Color.White)
         val color = scheme.primary
+        val typedMm by vm.scene.meshEditReading.collectAsState()
+        typedMm?.takeIf { editSel != null }?.let { mm ->
+            frame.longValue
+            val vw = view
+            val s = vw?.faceArrowScreen(vw.faceD.takeIf { vw.faceArrow != null } ?: 0f)
+            if (s != null) LiveLabel(mm, "mm", -1, Math.toDegrees(kotlin.math.atan2((s[3] - s[1]).toDouble(), (s[2] - s[0]).toDouble())).toFloat(), null,
+                Modifier.fillMaxSize().liveLabelAt(s[2], s[3]))
+        }
         Canvas(Modifier.fillMaxSize()) {
             frame.longValue; faceTick.longValue
             val vw = view ?: return@Canvas
@@ -617,6 +633,8 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                 drawLine(c, tip, tip - dir * head - side * head * 0.6f, w)
             }
             drawCircle(color, 4.dp.toPx(), base)
+            // A typed Move shows its own label (below, a node of its own).
+            if (typedMm != null) return@Canvas
             val mm = d * normal.length()
             val t = measurer.measure((if (mm > 0f) "+" else "") + "%.1f mm".format(mm), labelStyle)
             val pad = 4.dp.toPx()
@@ -674,22 +692,27 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // Done puts the plate camera back.
     // The Build workspace does the same with its object.
     val focused = solo || state.buildObject != null
-    LaunchedEffect(v, focused) {
+    // The box to frame: the painted copy, or the build object's copies (null while the scene has none yet, so the effect runs again).
+    val focusTarget: Pair<Vec3, Vec3>? = if (!focused) null else if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
+        else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
+            Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
+                Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
+        }
+    val focusPlate = if (solo) null else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.firstOrNull()?.plate
+    LaunchedEffect(v, focused, focusTarget != null) {
         val plate = shopCamera
         if (focused && plate == null) {
-            val box = if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
-                else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
-                    Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
-                        Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
-                }
-            box ?: return@LaunchedEffect
+            val box = focusTarget ?: return@LaunchedEffect
             // The live camera: the paint shop keeps this view (savedCamera may be from an older tab switch); a new view
             // (Build workspace) has savedCamera restored already (above).
             shopCamera = v.camera.state()
+            shopPlate = focusPlate
             v.onGl { fitPending = box }
         } else if (!focused && plate != null) {
-            v.camera.restore(plate)
-            shopCamera = null
+            val builderPlate = shopPlate
+            shopCamera = null; shopPlate = null
+            // Closing the builder frames the plate that holds the edited object (it may not be the one active before).
+            if (builderPlate != null) v.onGl { frame(builderPlate) } else v.camera.restore(plate)
         }
     }
     LaunchedEffect(v, state.workspace.selectionStyle) {
@@ -1012,6 +1035,9 @@ private var savedCamera: FloatArray? = null
 
 /** The plate camera from before the paint shop or the Build workspace, restored when it closes. */
 private var shopCamera: FloatArray? = null
+
+/** The plate of the Build workspace's object while it is open (null in the paint shop). */
+private var shopPlate: Int? = null
 
 /** Build workspace: how long a live resize / turn waits for the re-rendered pieces (a resize runs OpenSCAD) before it lets go. */
 private const val BUILD_RENDER_WAIT = 8000L

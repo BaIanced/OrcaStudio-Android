@@ -3,6 +3,7 @@
 *.so
 .stfolder/
 .stignore
+__pycache__/
 # Claude Code: the shared hook (privacy scan) is tracked, local settings are not.
 .claude/*
 !.claude/settings.json

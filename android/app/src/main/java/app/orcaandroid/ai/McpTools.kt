@@ -986,7 +986,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
         val dir = args.vec3("dir")
         if ((origin == null) != (dir == null)) throw ToolError("Give both origin and dir")
         val op = args.optString("op").ifEmpty { if (origin != null) "select" else "" }
-        if (op !in listOf("", "select", "clear", "all", "grow", "extrude", "inset", "cut", "fillet", "chamfer")) throw ToolError("op must be select, clear, all, grow, extrude, inset, cut, fillet or chamfer")
+        if (op !in listOf("", "select", "clear", "all", "grow", "shrink", "extrude", "inset", "cut", "fillet", "chamfer")) throw ToolError("op must be select, clear, all, grow, shrink, extrude, inset, cut, fillet or chamfer")
         val kind = args.optString("kind", "face")
         if (kind !in listOf("face", "edge", "vertex")) throw ToolError("kind must be face, edge or vertex")
         val angle = args.optDouble("angle", 30.0).takeIf { it.isFinite() && it >= 0 } ?: throw ToolError("angle must be >= 0")
@@ -1124,7 +1124,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
 
     /** The open shape design (main thread); fails when the editor holds hand-written code. */
     private suspend fun design(): ShapeDesign = editor().shapes ?: throw ToolError("The design editor holds hand-written " +
-        "OpenSCAD code. Ask the user to start a shape design (Add > Shape builder) first; these tools won't replace their code.")
+        "OpenSCAD code. Ask the user to start a shape design (Add > Make a part) first; these tools won't replace their code.")
 
     /**
      * Runs [change] on the open shape design on the main thread (it commits one undo step through

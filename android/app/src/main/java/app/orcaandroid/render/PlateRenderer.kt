@@ -343,6 +343,7 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         plateOrigins = origins.ifEmpty { listOf(0f to 0f) }
         bedDirty = true
         badgesDirty = true
+        if (framePending && outline.size >= 4) { framePending = false; lastFrame?.let { (index, top) -> frame(index, top) } }
     }
 
     /** The badge art and which icons each plate shows (GL thread). */
@@ -412,10 +413,12 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
 
     /** Frames plate [index] (or all plates for -1). */
     private var lastFrame: Pair<Int, Boolean>? = null
+    private var framePending = false
 
     fun frame(index: Int, top: Boolean = false) {
         lastFrame = index to top
-        if (bedOutline.size < 4) return
+        // No bed yet (a new view): the framing waits for it.
+        if (bedOutline.size < 4) { framePending = true; return }
         val xs = bedOutline.filterIndexed { i, _ -> i % 2 == 0 }
         val ys = bedOutline.filterIndexed { i, _ -> i % 2 == 1 }
         val origins = if (index in plateOrigins.indices) listOf(plateOrigins[index]) else plateOrigins

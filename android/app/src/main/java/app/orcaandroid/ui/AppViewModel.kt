@@ -445,7 +445,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun dismissError() = store.update { it.copy(chrome = it.chrome.copy(error = null)) }
+    fun dismissError() = store.update { it.copy(chrome = it.chrome.copy(error = null, errorHint = null, errorDetails = null)) }
     fun dismissSliceError() = store.update { it.copy(slicing = it.slicing.copy(sliceError = null)) }
     fun dismissFit() = store.update { it.copy(slicing = it.slicing.copy(fitIssue = null)) }
     fun dismissMessage() = store.update { it.copy(chrome = it.chrome.copy(message = null, messageAction = null)) }

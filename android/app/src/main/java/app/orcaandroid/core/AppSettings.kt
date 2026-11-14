@@ -231,6 +231,15 @@ class AppSettings(context: Context) {
     var snapPrepare: Boolean
         get() = prefs.getBoolean("snap_prepare", false)
         set(value) = prefs.edit().putBoolean("snap_prepare", value).apply()
+    /** The Reshape (sculpt) brush used last; the first use is Grab. */
+    var sculptBrush: String
+        get() = prefs.getString("sculpt_brush", null) ?: DEFAULT_SCULPT_BRUSH
+        set(value) = prefs.edit().putString("sculpt_brush", value).apply()
+    /** The Reshape brush radius (mm) used last; the first use is 30 mm. */
+    var sculptRadius: Float
+        get() = prefs.getFloat("sculpt_radius", DEFAULT_SCULPT_RADIUS)
+        set(value) = prefs.edit().putFloat("sculpt_radius", value).apply()
+
     var snapBuild: Boolean
         get() = prefs.getBoolean("snap_build", true)
         set(value) = prefs.edit().putBoolean("snap_build", value).apply()
@@ -411,6 +420,8 @@ class AppSettings(context: Context) {
     }
 }
 
+const val DEFAULT_SCULPT_BRUSH = "grab"
+const val DEFAULT_SCULPT_RADIUS = 30f
 const val DEFAULT_UNDO_LIMIT = 200
 const val MAX_UNDO_LIMIT = 5000
 const val DEFAULT_AUTO_SAVE_SECONDS = 60

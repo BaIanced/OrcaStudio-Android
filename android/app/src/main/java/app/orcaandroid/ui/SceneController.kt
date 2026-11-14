@@ -30,7 +30,9 @@ const val SNAP_PX = 14f
 /** A caught corner or edge lets go only past this many times the capture distance (no flicker at the rim). */
 const val SNAP_RELEASE = 1.6f
 const val SCULPT_MIN_MM = 0.5f
-const val SCULPT_MAX_MM = 30f
+const val SCULPT_MAX_MM = 150f
+/** The live label stays this long after the finger lifts (design spec, "Live label"). */
+const val LIVE_LABEL_LINGER_MS = 2000L
 
 /** Printer fit check (Assemble A2): the first copy of [obj] (-1: all objects) that doesn't fit, shown on the 3D view (Notices). */
 fun Store.checkFit(obj: Int = -1) = launch {
@@ -109,7 +111,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /** Ctrl+wheel while painting: scales the brush within the panel slider's range. */
     fun scaleBrush(factor: Float) {
-        (store.value.workspace.tool as? Tool.Sculpt)?.let { t -> store.update { it.copy(workspace = it.workspace.copy(tool = t.copy(radius = (t.radius * factor).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM)))) }; return }
+        (store.value.workspace.tool as? Tool.Sculpt)?.let { t ->
+            val sized = t.copy(radius = (t.radius * factor).coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM))
+            rememberSculpt(sized)
+            store.update { it.copy(workspace = it.workspace.copy(tool = sized)) }; return
+        }
         val tool = (store.value.workspace.tool as? Tool.Paint)?.takeIf { it.shape != "gap" } ?: return
         store.update { it.copy(workspace = it.workspace.copy(tool = tool.copy(radius = (tool.radius * factor).coerceIn(0.5f, 15f)))) }
     }
@@ -225,8 +231,14 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val items = selectedItems.ifEmpty { return }
         store.sceneOp { engine.duplicate(items, copies) }
     }
-    fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate) }
-    fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1) }
+    fun arrange(allPlates: Boolean) = store.sceneOp(store.str(R.string.arranging)) { engine.arrange(if (allPlates) -1 else activePlate).also { noticeIfUnchanged(it, R.string.already_arranged) } }
+    fun autoOrient() = store.sceneOp(store.str(R.string.orienting)) { engine.autoOrient(selection?.obj ?: -1).also { noticeIfUnchanged(it, R.string.already_oriented) } }
+
+    /** Toasts [message] when [scene] poses every copy as the current scene does (the operation changed nothing). */
+    private fun noticeIfUnchanged(scene: Scene, message: Int) {
+        fun poses(s: Scene) = s.objects.map { o -> o.instances.map { listOf(it.plate, it.offset, it.rotation, it.scale, it.mirror) } }
+        if (poses(scene) == poses(store.value.workspace.scene)) store.toast(store.str(message))
+    }
 
     /** Applies the fit the notice offered; the object list changed since: checks again instead. */
     fun fitToPrinter(issue: FitIssue) {
@@ -365,8 +377,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
         // The picked region's applied marks would no longer match the model.
         regionPick.value = null
         val before = store.value.workspace.scene.plates.size
+        val could = store.value.workspace.scene.canUndo
         val scene = engine.undo()
         store.applyScene(scene)
+        if (could) store.toast(store.str(R.string.undone))
         lastDelete?.let { (after, active) ->
             if (before == after && scene.plates.size > after) {
                 store.update { it.copy(workspace = it.workspace.copy(activePlate = active.coerceIn(0, scene.plates.lastIndex))) }
@@ -376,7 +390,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
         if (store.value.workspace.calibration != null && !scene.calibrationActive)
             store.update { it.copy(workspace = it.workspace.copy(calibration = null, projectName = it.workspace.nameBeforeCalibration)) }
     }
-    fun redo() = store.sceneOp { engine.redo() }
+    fun redo() = store.sceneOp {
+        val could = store.value.workspace.scene.canRedo
+        engine.redo().also { if (could) store.toast(store.str(R.string.redone)) }
+    }
 
     /** Fills the process's flushing matrix from the filament colours (like the desktop's auto-calc). */
     fun autoFlushMatrix() = store.launch {
@@ -393,9 +410,18 @@ class SceneController(private val store: Store, private val presets: PresetContr
     /** Opens paint [kind] as it was last left (PaintMode.reopened). */
     fun openPaint(kind: String, state: Int) = setTool(PaintMode.reopened(lastPaint[kind], kind, state))
 
+    /** Reshape (Sculpt) with the brush and radius used last; the first use is Grab, 30 mm. */
+    fun openReshape() = setTool(Tool.Sculpt(brush = store.settings.sculptBrush, radius = store.settings.sculptRadius.coerceIn(SCULPT_MIN_MM, SCULPT_MAX_MM)))
+
+    private fun rememberSculpt(t: Tool.Sculpt) {
+        store.settings.sculptBrush = t.brush
+        store.settings.sculptRadius = t.radius
+    }
+
     fun setTool(tool: Tool) = store.launch {
         val old = store.value.workspace.tool as? Tool.Paint
         old?.let { lastPaint[it.kind] = it }
+        if (tool is Tool.Sculpt) rememberSculpt(tool)
         store.update { it.copy(workspace = it.workspace.copy(tool = tool, measure = if (tool == Tool.Measure) emptyList() else it.workspace.measure)) }
         if (tool !is Tool.Paint || tool.shape != "regions" || tool.kind != old?.kind) regionPick.value = null
         if (tool is Tool.Paint && old != null && tool.kind == old.kind && tool.shape == old.shape && (tool.shape == "fill" || tool.shape == "regions")
@@ -835,7 +861,26 @@ class SceneController(private val store: Store, private val presets: PresetContr
         meshEditSel.value = meshEditSelOf(hit, step.selection)
     }
 
-    /** Mesh edit "clear", "all" or "grow" on the current selection. */
+    private var meshEditReadingJob: Job? = null
+    /** The arrow label's number for a typed Move (mm, the typed vector's length): shown while typed, kept [LIVE_LABEL_LINGER_MS] after Apply, else null. */
+    val meshEditReading = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
+
+    /** The typed Move is [mm] long (null / 0: nothing typed; an applied one's label stays until its linger ends). */
+    fun meshEditTyped(mm: Float?) {
+        val v = mm?.takeIf { it != 0f }
+        if (v == null && meshEditReadingJob?.isActive == true) return
+        meshEditReadingJob?.cancel()
+        meshEditReading.value = v
+    }
+
+    /** The typed Move of [mm] was applied: its label lingers. */
+    fun meshEditApplied(mm: Float) {
+        meshEditReadingJob?.cancel()
+        meshEditReading.value = mm
+        meshEditReadingJob = store.launch { kotlinx.coroutines.delay(LIVE_LABEL_LINGER_MS); meshEditReading.value = null }
+    }
+
+    /** Mesh edit "clear", "all", "grow" or "shrink" on the current selection. */
     fun meshEditOp(op: String) = store.launch {
         val sel = liveMeshEditSel() ?: return@launch
         val step = engine.meshEdit(sel.target, op, kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
@@ -849,6 +894,17 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val step = engine.meshEdit(sel.target, "end", kind = (store.value.workspace.tool as? Tool.MeshEdit)?.kind ?: "face", angle = meshEditAngle())
         step.scene?.let { store.applyScene(it) }
         meshEditSel.value = meshEditSelOf(sel.target, step.selection)
+    }
+
+    /** The Face selection as a round wall about X, Y or Z ([app.orcaandroid.render.HoleFinder.roundWall]), or null: not whole (over 500 vertices), not a wall. */
+    fun meshEditRoundWall(sel: MeshEditSel): app.orcaandroid.render.HoleFinder.RoundWall? =
+        if (sel.verts.size == sel.count * 3) app.orcaandroid.render.HoleFinder.roundWall(sel.verts) else null
+
+    /** Mesh edit Diameter: the selected round wall [wall] scaled about its axis to [diameter] mm, one undo step. */
+    fun meshEditDiameter(wall: app.orcaandroid.render.HoleFinder.RoundWall, diameter: Float) = store.launch {
+        val sel = liveMeshEditSel() ?: return@launch
+        if (!(diameter > 0f)) return@launch
+        meshEditTransform(app.orcaandroid.core.roundWallMatrix(wall, sel.centroid, diameter)).join()
     }
 
     /** Mesh edit typed extrude ("extrude": [mm] along the selection's normal, < 0 = pocket), "inset" ([mm] in), "fillet" or "chamfer" ([mm] radius / size on the selection's creases), one undo step. */
@@ -915,6 +971,11 @@ class SceneController(private val store: Store, private val presets: PresetContr
     private val pendingSculpt = ArrayDeque<SculptSample>()
     /** The part this stroke sculpts (picked at its first sample), or null before / without a hit. Guarded by [paintLock]. */
     private var sculptTarget: PickHit? = null
+    /** Grab: where the stroke grabbed the part (world mm, the engine's hit), or null before the first hit. Guarded by [paintLock]. */
+    private var grabAnchor: Vec3? = null
+    private var grabLingerJob: Job? = null
+    /** Grab's live label: mm between [grabAnchor] and the engine's current point, kept [LIVE_LABEL_LINGER_MS] after release, else null. */
+    val grabReading = kotlinx.coroutines.flow.MutableStateFlow<Float?>(null)
     /** The brush ring: world point and surface normal under the finger, mouse or pen, or null (lifted, off the part). */
     val sculptCursor = kotlinx.coroutines.flow.MutableStateFlow<Pair<Vec3, Vec3>?>(null)
     /** The latest hover ray not yet probed (only the newest counts). Guarded by [pendingSculpt]. */
@@ -963,7 +1024,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.launch {
             paintLock.withLock {
                 while (true) {
-                    val batch = synchronized(pendingSculpt) {
+                    var batch = synchronized(pendingSculpt) {
                         val out = mutableListOf<SculptSample>()
                         while (pendingSculpt.isNotEmpty() && (out.isEmpty() || !pendingSculpt.first().newStroke && !out.last().end)) out += pendingSculpt.removeFirst()
                         out
@@ -975,8 +1036,18 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         continue
                     }
                     val tool = store.value.workspace.tool as? Tool.Sculpt
+                    // A grab's anchor is the engine's hit of the first ray that lands on the part: until it is known the engine gets
+                    // one ray per call, so the point it returns is that anchor (not a later ray's point on the grab plane).
+                    if (tool?.brush == "grab" && (batch.first().newStroke || grabAnchor == null) && batch.size > 1) {
+                        val rest = batch.drop(1)
+                        synchronized(pendingSculpt) { rest.asReversed().forEach { pendingSculpt.addFirst(it) } }
+                        batch = batch.take(1).toMutableList()
+                    }
                     val first = batch.first()
                     if (first.newStroke) {
+                        grabAnchor = null
+                        grabLingerJob?.cancel()
+                        grabReading.value = null
                         val sel = selection
                         sculptTarget = if (tool == null || sel == null) null else engine.pick(first.origin, first.dir, only = sel.obj)
                     }
@@ -991,9 +1062,20 @@ class SceneController(private val store: Store, private val presets: PresetContr
                         step.scene?.let { store.applyScene(it) }
                         step.patch?.let { meshPatches.tryEmit(it) }
                         step.cursor?.let { sculptCursor.value = it }
+                        if (tool.brush == "grab") step.cursor?.let { (point, _) ->
+                            // The engine's own world-space points: the anchor it grabbed, then where the finger's ray meets the grab plane.
+                            val anchor = grabAnchor ?: (if (step.hit) point else null)?.also { grabAnchor = it }
+                            if (anchor != null) grabReading.value = (point - anchor).length()
+                        }
                         hoverTarget = target
                     }
-                    if (batch.last().end) sculptCursor.value = null
+                    if (batch.last().end) {
+                        sculptCursor.value = null
+                        if (grabReading.value != null) {
+                            grabLingerJob?.cancel()
+                            grabLingerJob = store.launch { kotlinx.coroutines.delay(LIVE_LABEL_LINGER_MS); grabReading.value = null }
+                        }
+                    }
                     if (batch.last().end && target != null) {
                         sculptTarget = null
                         store.applyScene(engine.sculptEnd())

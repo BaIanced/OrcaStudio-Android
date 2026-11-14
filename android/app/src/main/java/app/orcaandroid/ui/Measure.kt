@@ -147,9 +147,9 @@ fun measureLock(a: Vec3, b: Vec3, axes: Boolean, steps: Boolean): MeasureLock? {
 
 /** A lock's colour: X red, Y green, Z blue (the desktop's axis colours), a 15° step magenta. */
 fun measureLockColor(axis: Int) = when (axis) {
-    0 -> Color(0xFFEF5350)
-    1 -> Color(0xFF66BB6A)
-    2 -> Color(0xFF42A5F5)
+    0 -> app.orcaandroid.ui.theme.AXIS_X
+    1 -> app.orcaandroid.ui.theme.AXIS_Y
+    2 -> app.orcaandroid.ui.theme.AXIS_Z
     else -> Color(0xFFEC407A)
 }
 

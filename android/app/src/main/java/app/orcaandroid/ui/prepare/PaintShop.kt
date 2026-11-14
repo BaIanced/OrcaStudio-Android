@@ -1,28 +1,17 @@
 package app.orcaandroid.ui.prepare
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
@@ -31,33 +20,45 @@ import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
+import app.orcaandroid.ui.components.ModeStrip
+import app.orcaandroid.ui.components.Room
 
 /** Painting of every kind (colour, supports, seam, fuzzy skin) opens the paint shop: a workspace of its own instead of a card over the plate (user plan 2026-10-21, all kinds 2026-10-29). */
 internal val UiState.inPaintShop get() = chrome.screen == Screen.PREPARE && workspace.tool is Tool.Paint
 
-/** The frame around the 3D view that says "you are in the paint shop" (the mockup's purple). */
-private val SHOP_FRAME = Color(0xFF7F67BE)
-
 /**
- * The paint shop's frame on the 3D view: a border, not a fill, so nothing purple shows while the view draws its
- * first frame. The plate view keeps its place in the layout ([Workspace]); only this frame, the bar and the dock come and go.
+ * The room the user is in, or null on the plain plate: Make while the builder or code pane is open, Reshape for Sculpt and
+ * Edit mesh, Paint for the paint shop, Cut for the cut card. Each shows the mode strip and a frame round the 3D view.
  */
-internal fun shopFrame(shop: Boolean): Modifier = if (shop) Modifier.border(3.dp, SHOP_FRAME).padding(3.dp) else Modifier
+internal val UiState.room: Room? get() = when {
+    chrome.screen != Screen.PREPARE -> null
+    inPaintShop -> Room.PAINT
+    design.scad != null -> Room.MAKE
+    else -> when (workspace.tool) {
+        is Tool.Sculpt, is Tool.MeshEdit -> Room.RESHAPE
+        is Tool.Cut -> Room.CUT
+        else -> null
+    }
+}
 
 /**
- * The paint shop's bar: title, undo, redo, the plate's view menu (camera presets, Realistic, layer lines, edges) and
- * Done. The tab bar, plate tools and Slice button stay hidden; Done or Back leaves.
+ * The strip across the top of a room: "Editing: <name>", the room's Undo / Redo (the builder's stack in Make, the plate's
+ * elsewhere) and Done, which does what Back does today (Make closes the editor, the others drop the tool). Paint keeps the
+ * plate's view menu on it. The tab bar, plate tools and Slice button stay hidden in the paint shop.
  */
 @Composable
-internal fun PaintShopBar(state: UiState, vm: AppViewModel, view: PlateView?) {
-    Surface(tonalElevation = 2.dp) {
-        Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top)).padding(start = 16.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.paint_shop), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = SHOP_FRAME)
-            ViewButtons(state, vm, view, rail = false)
-            TextButton(onClick = { vm.scene.setTool(Tool.None) }) { Text(stringResource(R.string.done)) }
-        }
-    }
+internal fun RoomBar(room: Room, state: UiState, vm: AppViewModel, view: PlateView?) {
+    val make = room == Room.MAKE
+    val name = (if (make) state.design.scad?.name else state.workspace.selectedItems.firstOrNull()
+        ?.let { state.workspace.scene.objects.getOrNull(it.obj)?.name })?.takeIf { it.isNotBlank() }
+        ?: state.workspace.projectName?.takeIf { it.isNotBlank() } ?: stringResource(room.label)
+    ModeStrip(room, name,
+        canUndo = if (make) vm.shapes.canUndo else state.workspace.scene.canUndo,
+        canRedo = if (make) vm.shapes.canRedo else state.workspace.scene.canRedo,
+        onUndo = { if (make) vm.shapes.undo() else vm.scene.undo() },
+        onRedo = { if (make) vm.shapes.redo() else vm.scene.redo() },
+        onDone = { if (make) vm.scad.close() else vm.scene.setTool(Tool.None) },
+        actions = { if (room == Room.PAINT) ViewButtons(state, vm, view, rail = false, undoRedo = false) })
 }
 
 /** The colour paint options, docked at the bottom in portrait and beside the view ([side]) in landscape. */

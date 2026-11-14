@@ -214,12 +214,19 @@ class ScadController(private val store: Store) {
     fun editObject(index: Int) = store.launch {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
+        showPlateOf(obj)
         if (st == null) open(newDesign = false).join()
         // A design with its own include files gets them back in a folder of its own.
         val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
         }
         load(design.name, file, design.shapes?.toScad() ?: design.source, design.values, onPlate = obj.name, shapes = design.shapes)
+    }
+
+    /** The builder opens on the plate that holds [obj], so it is framed there and not on the plate that was active. */
+    private fun showPlateOf(obj: SceneObject) {
+        val plate = obj.instances.firstOrNull()?.plate ?: return
+        if (store.value.workspace.activePlate != plate) store.update { it.copy(workspace = it.workspace.copy(activePlate = plate)) }
     }
 
     /**
@@ -230,6 +237,7 @@ class ScadController(private val store: Store) {
     fun editMesh(index: Int) = store.launch {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
+        showPlateOf(obj)
         if (st == null) open(newDesign = false).join()
         val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
         val shapes = try {

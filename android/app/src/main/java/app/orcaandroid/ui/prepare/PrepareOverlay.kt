@@ -15,11 +15,15 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import app.orcaandroid.ui.WIDE_LAYOUT
+import app.orcaandroid.ui.components.ToolCardDefaults
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.BorderOuter
@@ -184,7 +188,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             val scroll = rememberScrollState()
             Box(Modifier.align(Alignment.TopStart).padding(top = top, bottom = if (filmstrip) 64.dp else 0.dp)) {
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ViewButtons(state, vm, view, rail = true)
+                    ViewButtons(state, vm, view, rail = true, undoRedo = state.room == null)
                     HorizontalDivider(Modifier.width(48.dp).padding(horizontal = 8.dp))
                     ToolButtons(state, vm)
                 }
@@ -249,7 +253,18 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         // The layer height graph is tall: on wide layouts it sits at the right edge (like the desktop's)
         // above the Slice button, not over the object in the middle.
         val rightPanel = wide && state.workspace.tool == Tool.LayerHeight
-        Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
+        val editing = state.workspace.tool is Tool.MeshEdit
+        if (editing) {
+            // Push / pull: the docked tool card (design spec section 6): end side on a wide window, else the bottom.
+            val w = with(density) { containerSize.width.toDp() }
+            val h = with(density) { containerSize.height.toDp() }
+            val side = w >= 600.dp && w > h
+            MeshEditCard(state, vm, side,
+                if (side) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp).width(if (w >= WIDE_LAYOUT) ToolCardDefaults.SIDE_WIDTH_WIDE else ToolCardDefaults.SIDE_WIDTH)
+                    .heightIn(max = (h - 72.dp).coerceAtLeast(96.dp))
+                else Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp).fillMaxWidth().heightIn(max = (h * ToolCardDefaults.MAX_HEIGHT_FRACTION).coerceAtLeast(96.dp)))
+        }
+        if (!editing) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
@@ -274,20 +289,29 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
 /** First run: the next of the three taps to a print (add a model, Slice, send), with a button for it; closes for good with x. */
 @Composable
 private fun CoachStrip(state: UiState, vm: AppViewModel) {
+    // With auto-slice the result arrives by itself, so step 2 stays up until it has: no jump from 1 to 3 (U-18).
     val step = when {
         state.workspace.scene.isEmpty -> 1
-        state.slicing.results.isEmpty() -> 2
+        state.slicing.results.isEmpty() || state.slicing.slice is SliceStatus.Running -> 2
         else -> 3
     }
     Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-        Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(when (step) { 1 -> R.string.coach_add; 2 -> R.string.coach_slice; else -> R.string.coach_send }),
-                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
-            when (step) {
-                1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
-                3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+        Column {
+            Row(Modifier.padding(start = 12.dp, top = 2.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(when (step) {
+                    1 -> R.string.coach_add
+                    2 -> if (state.slicing.autoSlice) R.string.coach_slice_auto else R.string.coach_slice
+                    else -> R.string.coach_send
+                }), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
+                when (step) {
+                    1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
+                    3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
+                }
+                androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
             }
-            androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }
+            // The other way in (+ > Make a part, or select a model and use its menu).
+            if (step == 1) Text(stringResource(R.string.coach_make), Modifier.padding(start = 12.dp, end = 12.dp, bottom = 6.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
         }
     }
 }
@@ -398,7 +422,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false) } } }
+    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false, undoRedo = state.room == null) } } }
     // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow). With the switcher on the grip the
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
@@ -445,16 +469,19 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
     }
 }
 
-/** Undo, redo and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
+/** Undo, redo ([undoRedo]) and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
 @Composable
-internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean) {
+internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean, undoRedo: Boolean = true) {
     var viewMenu by remember { mutableStateOf(false) }
     val button: @Composable (ImageVector, String, Boolean, () -> Unit) -> Unit = { icon, label, enabled, onClick ->
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
         else Tip(label) { IconButton(onClick = onClick, enabled = enabled) { Icon(icon, label) } }
     }
-    button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
-    button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
+    // A room (mode strip) carries its own Undo and Redo.
+    if (undoRedo) {
+        button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
+        button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
+    }
     Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
@@ -620,6 +647,9 @@ private fun ToolButtons(
             ToolButton(Icons.Default.ContentCut, stringResource(R.string.cut), active = state.workspace.tool is Tool.Cut) {
                 if (state.workspace.tool is Tool.Cut) vm.scene.setTool(Tool.None) else vm.scene.startCut()
             }
+            ToolButton(Icons.Default.Gesture, stringResource(R.string.sculpt), active = state.workspace.tool is Tool.Sculpt) {
+                if (state.workspace.tool is Tool.Sculpt) vm.scene.setTool(Tool.None) else vm.scene.openReshape()
+            }
             ToolButton(Icons.Default.Brush, stringResource(R.string.paint), active = state.workspace.tool is Tool.Paint) { vm.scene.openPaint("color", 2) }
             ToolButton(Icons.Default.Layers, stringResource(R.string.variable_layer_height), active = state.workspace.tool == Tool.LayerHeight) {
                 vm.scene.setTool(if (state.workspace.tool == Tool.LayerHeight) Tool.None else Tool.LayerHeight)
@@ -662,7 +692,7 @@ private fun ToolButtons(
                         item(R.string.check_mesh) { dialog = "check" }
                     }
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Sculpt()) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.openReshape() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
@@ -793,7 +823,7 @@ private fun SliceButton(state: UiState, vm: AppViewModel, modifier: Modifier) {
                 },
             )
             if (multi) {
-                IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(24.dp)) { Icon(Icons.Default.ExpandMore, null) }
+                IconButton(onClick = { menu = true }, modifier = Modifier.align(Alignment.TopEnd).size(48.dp)) { Icon(Icons.Default.ExpandMore, stringResource(R.string.slice_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.slice_all)) }, onClick = { menu = false; vm.slicing.sliceAll() })
                 }

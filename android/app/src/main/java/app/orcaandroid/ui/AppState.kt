@@ -321,6 +321,9 @@ data class ChromeState(
     /** Cancels the [busy] operation (Cancel button on the busy dialog); null = not cancellable. */
     val busyCancel: (() -> Unit)? = null,
     val error: String? = null,
+    /** A plain-language hint under [error] and the raw text behind it (collapsed "Details"); null for other errors. */
+    val errorHint: String? = null,
+    val errorDetails: String? = null,
     val message: String? = null,
     val messageAction: MessageAction? = null,
     /** A page the Models tab's browser should open next (e.g. a 3D Filament Profiles print log). */

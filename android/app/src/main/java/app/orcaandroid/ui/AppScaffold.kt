@@ -106,6 +106,7 @@ import app.orcaandroid.ui.device.DeviceScreen
 import app.orcaandroid.ui.prepare.PlateSwitcherBar
 import app.orcaandroid.ui.prepare.PrepareOverlay
 import app.orcaandroid.ui.prepare.inPaintShop
+import app.orcaandroid.ui.prepare.room
 import app.orcaandroid.ui.prepare.ProblemFocus
 import app.orcaandroid.ui.prepare.PreparePanel
 import app.orcaandroid.ui.preview.PreviewOverlay
@@ -294,8 +295,9 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
         if (PanelSize.height < 360f) PanelSize.height = 360f
         if (state.chrome.panelTucked) vm.setPanelTucked(false)
     }
+    val room = state.room
     val viewport: @Composable (Modifier) -> Unit = { m ->
-        Box(m) {
+        Box(m.then(app.orcaandroid.ui.components.roomFrame(room))) {
             Viewport(state, vm, onView = { plateView = it }, modifier = Modifier.fillMaxSize().steadyThroughGlide()
                 .onGloballyPositioned { app.orcaandroid.ui.prepare.CanvasBounds.rect = it.boundsInWindow() })
             // Floating controls have their own size, on top of the interface size.
@@ -315,7 +317,7 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     // entry, the shop's frame colour filling the screen until the first frame, user r459). Bar, frame and dock wrap it.
     val shop = state.inPaintShop
     Column(Modifier.fillMaxSize()) {
-        if (shop) app.orcaandroid.ui.prepare.PaintShopBar(state, vm, plateView)
+        if (room != null) app.orcaandroid.ui.prepare.RoomBar(room, state, vm, plateView)
         Box(Modifier.weight(1f).fillMaxWidth()) { WorkspaceBody(state, vm, wide, shop, viewport, plateView) }
     }
 }
@@ -365,7 +367,7 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
                     if (scad != null) Box(Modifier.weight(1f).fillMaxHeight()) {
                         viewport(Modifier.fillMaxSize())
                         ScadReopenButton({ vm.setScadHidden(false) }, Modifier.align(Alignment.BottomEnd).padding(end = 8.dp, bottom = 76.dp))
-                    } else viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                    } else viewport(Modifier.weight(1f).fillMaxHeight())
                     if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight()); return@Row }
                     // The edge drags to resize the panel (like the OpenSCAD editor's); let go below the snap
                     // width and it tucks away. A tap tucks it away or brings it back.
@@ -424,10 +426,10 @@ private fun WorkspaceBody(state: UiState, vm: AppViewModel, wide: Boolean, shop:
             val height = (if (PanelSize.height > 0f) PanelSize.height.dp else 132.dp).coerceIn(56.dp, (total * 0.85f).coerceAtLeast(56.dp))
             // A landscape phone docks the shop's options beside the view (a new GL view on entry there, as before).
             if (shop && maxWidth > maxHeight && maxWidth >= 600.dp) Row(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxHeight().then(app.orcaandroid.ui.prepare.shopFrame(true)))
+                viewport(Modifier.weight(1f).fillMaxHeight())
                 app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = true, Modifier.width(360.dp).fillMaxHeight())
             } else Column(Modifier.fillMaxSize()) {
-                viewport(Modifier.weight(1f).fillMaxWidth().then(app.orcaandroid.ui.prepare.shopFrame(shop)))
+                viewport(Modifier.weight(1f).fillMaxWidth())
                 if (shop) { app.orcaandroid.ui.prepare.PaintShopDock(state, vm, side = false, Modifier.fillMaxWidth().heightIn(max = total * 0.45f)); return@Column }
                 val onHandle = state.chrome.platesOnHandle && state.chrome.screen == Screen.PREPARE
                 val slice = state.chrome.screen == Screen.PREPARE && app.orcaandroid.ui.prepare.sliceOnGrip(state, wide)
@@ -619,7 +621,18 @@ private fun GlobalDialogs(state: UiState, vm: AppViewModel) {
             onDismissRequest = vm::dismissError,
             title = { Text(stringResource(R.string.error)) },
             // Engine errors are OrcaSlicer's (translatable) messages; show them in the app's language.
-            text = { Text(engineErrorText(message, vm.translator)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(engineErrorText(message, vm.translator))
+                    state.chrome.errorHint?.let { Text(it) }
+                    state.chrome.errorDetails?.let { details ->
+                        var open by remember(details) { mutableStateOf(false) }
+                        Text(stringResource(R.string.error_details) + if (open) " ▴" else " ▾", style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary, modifier = Modifier.clickable { open = !open })
+                        if (open) Text(details, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                    }
+                }
+            },
             confirmButton = { TextButton(onClick = vm::dismissError) { Text(stringResource(R.string.ok)) } },
         )
     }

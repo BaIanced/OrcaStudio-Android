@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
@@ -192,7 +194,9 @@ fun ScrubSlider(key: String, text: @Composable (Float) -> String, value: Float, 
                 step: Float, modifier: Modifier = Modifier, commit: () -> Unit = {}, set: (Float) -> Unit) =
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         ScrubLabel(key, text, value, range, step, commit = commit, set = set)
-        Slider(value, set, valueRange = range, onValueChangeFinished = commit, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        val label = text(value)
+        Slider(value, set, valueRange = range, onValueChangeFinished = commit,
+            modifier = Modifier.weight(1f).padding(start = 8.dp).semantics { contentDescription = label })
     }
 
 private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.scrubGesture(key: String, tick: () -> Unit) =

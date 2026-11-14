@@ -13,7 +13,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 ## State
 - One repo: OrcaStudio-Android (code + these docs, `docs/handoff/`), branch `claude/handoff-continuation-rseql3`. Autonomy (user, 2026-10-11): decide branches and next steps
   yourself; **main merges / releases need the user**. Offer a merge when a batch is verified.
-- Android main = 3181529 (PR #84 = r548, batch 1 + GLB/glTF/PLY/OFF import + GL preview work, merged 2026-11-12 on the user's "merge"; Claude-verified only). Nothing unmerged on the branch but handoff docs. User-untested in main: `SIGNOFF-CHECKLIST.md`.
+- Android main = df0a903 (PR #85 = batch 2: UiState split, LayoutLab retired, package cycles; merged 2026-11-13 on the user's "/next-merge"; Claude-verified only, CI green). Before it: PR #84 = r548 (batch 1). Nothing unmerged on the branch but handoff docs. User-untested in main: `SIGNOFF-CHECKLIST.md`.
 - Signing secrets: `release` environment (main + `claude/*` only).
 - Installs: all adb devices (skip .23); **SHIELD avoided (user 2026-11-01)**. WSA restart: `WsaClient /shutdown`, `wsa-start.ps1`, `adb connect 127.0.0.1:58526`; phone/Chromebook reconnect: memory devices. GL shots on the phone VD.
 - **src-orca stays unmodified: native changes ship as `android/patches/src-orca/*.patch`, applied by a CI step (Patch OrcaSlicer); no local native build.**
@@ -38,8 +38,17 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Batch 1 merged (PR #84, archive "T-019" / "PR #84"). **Batch 2 open (user said yes to refactor first, answer 14): T-020, T-021 done (test baseline 45; plan `docs/audit/plan/uistate-split.md`, 8 moves); T-022..T-026c (all 8 moves) done; T-027 done (60a49b3; shot check: no regression, archive 2026-11-13); T-028 done (97c5995); T-029 checks passed, see below. PR #84's `scan` check failed on old commit cf75a81 (2026-11-04, a LAN address once in HANDOFF.md, gone from the tree); user told, their call (backlog).
 - Open for the user: `gh variable set RELEASE_CERT_SHA256` (T-006); blank `Verdict (user)` line in memory cheaper-subagents; move docs/handoff to a private repo before T-038 (backlog).
 - **T-029 gate passed; T-027 follow-up done 771ad11 (2026-11-13, archive "T-027 follow-up": 13 lab fields back as settings + migration, plate + on the left, cube/pie in `android/reference/`), device-checked on WSA (smoke 8/8, migration, + position).** Nothing installed on real devices. WSA has the 771ad11 debug build. Not device-checked: each new row's effect, tool-row long-press/drag.
-- CI run 43406954976 (36106a0) green, not installed. **Batch 2 merge offer shown 2026-11-13, no answer yet** (user asked to clear).
-- Next step: ask for the batch 2 merge answer (main merge needs the user; `/next-merge` = yes) -> after the merge T-030 (depends on UA-1) -> Sonnet 5.5 (coordinator; the subagent model is the task tag)
+- CI run 43406954976 (36106a0) green, not installed. **Batch 2 merged 2026-11-13 (PR #85), merge offer cleared.** Unverified on the branch: nothing.
+- T-030 done (77cee24, `docs/design/DESIGN-SYSTEM.md`, source-checked only).
+- T-031 done 18faa06 (device-checked on WSA VD: open target [128,128,12.5] inside the box; Close [128,128,0] on the box base, in range; `+ > Design` path not checked; a stray throwaway smoke.stl is on WSA plate 1).
+- T-032 done 54e0ecd (device-checked WSA VD: smoke 8/8; Editing:/Done nodes in builder, Reshape, Push / pull, Cut, Paint; contact sheet docs/audit/T-032-rooms-contact-sheet.png; not checked: U-18 coach line, narrow width, German strings; smoke.sh now taps Done).
+- T-033 done 459c5df (device-checked WSA VD: label 5.9 mm vs mesh 5.905 mm; smoke 8/8; label display-only, no tap-to-type; scaled instances and log radius slider not driven).
+- T-034 done 162bb71 (CK compile/test rc 0, 313 tests; VD numbers from the subagent, orchestrator did not re-drive the device; Shrink native op untested until a CI build, axis colours not seen on screen).
+- T-035 done (316 tests; WSA VD 3.00 -> 3.40 -> Undo 3.00, subagent-measured; no face-normal test, backlog candidate: native change to send face normals).
+- T-036 done e0f54e8 (compile + tests rc 0; VD unlabeled nodes 1/1/2/1/1 -> 0 on 5 screens, subagent-measured; Open top / Repeat / Cut checkboxes code-only, not on device; helper scripts in orca-android-tools/t036).
+- T-037 done a8ca8e8 (compile+tests rc 0; VD: no address outside Details, Already arranged/oriented, Undone; Redo notice and empty-stack Undo not device-checked).
+- T-038 done eaf6682 (on WSA at phone geometry, user 2026-11-13; pictures in docs/media/, orchestrator-viewed; current name kept; details in the MASTER-PLAN tick). Phone was unreachable.
+- T-039 done (2026-11-13): checks green on 52459ad (319 tests, smoke 8/8), CI r553 run 43525944893 green, installed WSA only; B-23a..c written; archive line. **PR #86 (batch 3) is open and green (scan + unit-tests); the user said yes to the offer: /next-merge merges it.** r553 installed on WSA and phone (2026-11-13, `adb connect` to the mdns-listed phone address; install only, not launched); Note still unreachable (`adb mdns services` showed no Note; `.114` is unauthorized, unknown device). PR #86 re-checked green (unit-tests + scan) 2026-11-13. Next after merge: batch 4 (T-040..).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
