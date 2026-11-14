@@ -48,7 +48,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - T-036 done e0f54e8 (compile + tests rc 0; VD unlabeled nodes 1/1/2/1/1 -> 0 on 5 screens, subagent-measured; Open top / Repeat / Cut checkboxes code-only, not on device; helper scripts in orca-android-tools/t036).
 - T-037 done a8ca8e8 (compile+tests rc 0; VD: no address outside Details, Already arranged/oriented, Undone; Redo notice and empty-stack Undo not device-checked).
 - T-038 done eaf6682 (on WSA at phone geometry, user 2026-11-13; pictures in docs/media/, orchestrator-viewed; current name kept; details in the MASTER-PLAN tick). Phone was unreachable.
-- T-039 done (2026-11-13): checks green on 52459ad (319 tests, smoke 8/8), CI r553 run 43525944893 green, installed WSA only; B-23a..c written; archive line. **Merge offer for batch 3 (T-030..T-038) is ready: ask the user.** Next after merge: batch 4 (T-040..).
+- T-039 done (2026-11-13): checks green on 52459ad (319 tests, smoke 8/8), CI r553 run 43525944893 green, installed WSA only; B-23a..c written; archive line. **PR #86 (batch 3) is open and green (scan + unit-tests); the user said yes to the offer: /next-merge merges it.** r553 installed on WSA only; phone and Note were not reachable over adb (2026-11-13): reconnect (`adb mdns services`, `target.sh phone|note`) and install r553 after the merge. Next after merge: batch 4 (T-040..).
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
