@@ -15,6 +15,7 @@ The notes say nothing on push/pull, cut or mobile/touch. Verdicts below are firs
 | Fix Model rebuilt (`--repair`), mesh booleans with multi-piece cutters | yes | Check mesh | Compare before extending Check mesh or OrcaMesh. |
 | Python plugins + permission system | yes (desktop GUI dialogs) | generic plugin runtime | Compare before finishing the plugin gaps. |
 | Paint: support-paint axis locks, brim ear radius | yes | stroke axis lock exists | Nothing to do. |
+| Keep painted feature after mesh change | `ModelVolume::save_painting` / `restore_painting` (Model.hpp:981-984; spatial remap `TriangleSelector::remap_painting`), used by cut, simplify, mesh boolean | Sculpt dropped all paint on a refine / stroke-end split | Reused for Sculpt (T-054, `OrcaSculpt.cpp`, source mesh = the session's moved mesh). Edit mesh extrude / inset / cut ring / fillet / chamfer still drop paint. |
 | Belt printing, IDEX/IQEX parallel, separated infill, Publish 3MF | yes | none | Not relevant to our printers; ignore. |
 Next: side-by-side checks on WSA where marked "compare"; then re-tag backlog items.
 Check 2026-10-25 (source only, untested on device): FilamentMixer, TextureDisplacement, TextureBake/*, TextureToColor are in the

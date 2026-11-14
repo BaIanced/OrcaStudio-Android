@@ -20,6 +20,7 @@
 #include "libslic3r/AABBTreeIndirect.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/TriangleMesh.hpp"
+#include "libslic3r/TriangleSelector.hpp"
 
 #include <boost/log/trivial.hpp>
 #include <chrono>
@@ -55,6 +56,17 @@ indexed_triangle_set sculpt_to_its(const meshdeform::Mesh &m)
     for (const auto &f : m.faces)
         its.indices.emplace_back(f[0], f[1], f[2]);
     return its;
+}
+
+// The part's paint before its mesh is replaced by one with other triangles (a refine or a split), for restore_painting().
+// [geometry] has the part's triangles in the same order (paint is per triangle) but may be newer: an unflushed session's
+// moved vertices. It is the remap's source then, so paint follows the sculpted surface, not the pre-stroke one.
+static std::optional<TriangleSelector::SavedPainting> sculpt_save_painting(const ModelVolume &vol, const meshdeform::Mesh &geometry)
+{
+    auto saved = vol.save_painting();
+    if (saved && geometry.faces.size() == saved->mesh.its.indices.size())
+        saved->mesh = TriangleMesh(sculpt_to_its(geometry));
+    return saved;
 }
 
 // Moller-Trumbore; the ray parameter or -1.
@@ -234,13 +246,15 @@ bool OrcaEngine::sculpt_flush_locked()
 // A stroke's end: the session's mesh goes into the part like sculpt_flush_locked(), but first the edges its strokes
 // stretched past twice the refine length (a grab pulls them long) are split, so the next stroke has vertices there
 // (dynamic topology between strokes; splitting mid-stroke would rebuild the topology every dab). Facet indices change
-// then, so the part's painting is dropped and the session is rebuilt on the new mesh. True when the part's mesh changed.
+// then, so the part's painting is remapped onto the new triangles and the session is rebuilt on the new mesh. True when
+// the part's mesh changed.
 bool OrcaEngine::sculpt_finish_locked()
 {
     if (!m_sculpt || !m_sculpt->dirty)
         return false;
     SculptSession &s = *m_sculpt;
     bool split = false;
+    std::optional<TriangleSelector::SavedPainting> saved;
     if (!s.touched_list.empty() && s.refined_to < std::numeric_limits<double>::max()) {
         const double limit2 = 4. * s.refined_to * s.refined_to;
         auto len2 = [&s](int a, int b) {
@@ -258,6 +272,9 @@ bool OrcaEngine::sculpt_finish_locked()
             }
         }
         if (stretched) {
+            // The part's paint indexes the session's triangles; taken before the split renumbers them.
+            if (s.object < int(m_model->objects.size()) && s.volume < int(m_model->objects[s.object]->volumes.size()))
+                saved = sculpt_save_painting(*m_model->objects[s.object]->volumes[s.volume], s.mesh);
             const auto t0 = std::chrono::steady_clock::now();
             const size_t before = s.mesh.faces.size();
             // New midpoints (past the mask) lie on split edges, so they count as sculpted.
@@ -276,10 +293,11 @@ bool OrcaEngine::sculpt_finish_locked()
         return false;
     if (split) {
         ModelVolume *vol = m_model->objects[oi]->volumes[vi];
-        vol->supported_facets.reset();
-        vol->seam_facets.reset();
-        vol->mmu_segmentation_facets.reset();
-        vol->fuzzy_skin_facets.reset();
+        const auto t0 = std::chrono::steady_clock::now();
+        vol->restore_painting(saved);
+        if (saved)
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: stroke end paint restore "
+                                       << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count() << " ms";
         sculpt_build(oi, ii, vi);
         m_sculpt->refined_to = refined;
         m_sculpt->mirror_center = center;
@@ -403,13 +421,15 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             }
         if (std::sqrt(longest) > edge && m.faces.size() < budget) {
             const size_t before = m.faces.size();
+            // The part's paint indexes [m]'s triangles (the session moves vertices only); taken before the refine renumbers them.
+            const auto saved = sculpt_save_painting(*vol, m);
+            const auto t_save = std::chrono::steady_clock::now();
             meshdeform::refine_to_length(m, edge, budget);
             const auto t_refine = std::chrono::steady_clock::now();
             vol->set_mesh(sculpt_to_its(m));
-            vol->supported_facets.reset();
-            vol->seam_facets.reset();
-            vol->mmu_segmentation_facets.reset();
-            vol->fuzzy_skin_facets.reset();
+            const auto t_set = std::chrono::steady_clock::now();
+            vol->restore_painting(saved);
+            const auto t_paint = std::chrono::steady_clock::now();
             // Edge midpoints only: the convex hull stays the same (qhull on the refined mesh took hundreds of ms).
             obj.invalidate_bounding_box();
             const auto t_hull = std::chrono::steady_clock::now();
@@ -417,8 +437,9 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             committed = true;
             fresh = false;
             auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
-            BOOST_LOG_TRIVIAL(warning) << "sculpt: refine " << before << " -> " << m.faces.size() << " faces " << ms(t0, t_refine)
-                                       << " ms, set mesh " << ms(t_refine, t_hull) << " ms, commit "
+            BOOST_LOG_TRIVIAL(warning) << "sculpt: refine " << before << " -> " << m.faces.size() << " faces " << ms(t_save, t_refine)
+                                       << " ms, set mesh " << ms(t_refine, t_set) << " ms, paint " << (saved ? "save " : "none ")
+                                       << ms(t0, t_save) << " ms restore " << ms(t_set, t_paint) << " ms, commit "
                                        << ms(t_hull, std::chrono::steady_clock::now()) << " ms";
         } else if (fresh)
             m_sculpt->mesh = std::move(m);
