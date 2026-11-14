@@ -189,8 +189,9 @@ class Engine(private val cacheDir: File) {
         call("checkMesh", args("object" to obj, "instance" to instance, "thickness" to thickness))
     suspend fun replaceMesh(obj: Int, path: String, module: String = "") =
         parseScene(call("replaceMesh", args("object" to obj, "path" to path, "module" to module)))
-    suspend fun setObjectModule(obj: Int, module: String) =
-        parseScene(call("setObjectModule", args("object" to obj, "module" to module)))
+    /** Sets the object's design tag; [undo] makes it an undo step of its own (the focus room's freeze). */
+    suspend fun setObjectModule(obj: Int, module: String, undo: Boolean = false) =
+        parseScene(call("setObjectModule", args("object" to obj, "module" to module, "undo" to undo)))
     suspend fun addVolume(obj: Int, type: VolumeType, shape: String, size: Vec3) =
         parseScene(call("addVolume", args("object" to obj, "type" to type.code, "shape" to shape, "size" to size)))
     suspend fun deleteVolume(obj: Int, volume: Int) = parseScene(call("deleteVolume", args("object" to obj, "volume" to volume)))
@@ -223,6 +224,14 @@ class Engine(private val cacheDir: File) {
     suspend fun undo() = parseScene(call("undo"))
     suspend fun redo() = parseScene(call("redo"))
     suspend fun setUndoLimit(limit: Int) = parseScene(call("setUndoLimit", args("limit" to limit)))
+    /**
+     * The focus room's plate history (docs/design/FOCUS-ROOM.md section 7). [roomBegin] opens it at the current depth (nothing
+     * if open); while open Undo stops at the tool floor, which [roomFloor] moves to the current depth (Redo dropped);
+     * [roomEnd] leaves the visit as one plate step.
+     */
+    suspend fun roomBegin() = parseScene(call("roomBegin"))
+    suspend fun roomFloor() = parseScene(call("roomFloor"))
+    suspend fun roomEnd() = parseScene(call("roomEnd"))
     suspend fun addPrimitive(shape: String, size: Vec3, plate: Int, round: Float = 0f) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate, "round" to round)))
     /** Shape builder Blend joins: [spec] = {radius, parts} (ShapeDesign.blendCode) fused in OCCT into the STL [out]; its triangle count. */
     suspend fun blendSolids(spec: JSONObject, out: File): Int =

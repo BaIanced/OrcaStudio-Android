@@ -125,45 +125,76 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
     }
 
-    // --- Focus room (docs/design/FOCUS-ROOM.md; the engine's roomBegin / roomEnd calls come with T-052) -------------
+    // --- Focus room (docs/design/FOCUS-ROOM.md) ---------------------------------------------------------------------
 
-    /** "Edit shape": opens the room on object [obj] with the default tool, today's calls open it (the builder for a design, Push / pull for a mesh). */
+    /** An entry's roomBegin is on its way: a second tap does not open the room twice. */
+    private var roomOpening = false
+
+    /**
+     * "Edit shape": the engine's roomBegin first (the visit becomes one plate step), then the room on object [obj] with the
+     * default tool, which today's calls open (the builder for a design, Push / pull for a mesh).
+     */
     fun openRoom(obj: Int) {
         val s = state.value
-        if (!s.chrome.focusRoom || s.workspace.focus != null) return
+        if (!s.chrome.focusRoom || s.workspace.focus != null || roomOpening) return
         val o = s.workspace.scene.objects.getOrNull(obj)?.takeIf(::hasRoom) ?: return
         val kind = roomKind(o)
-        store.update { st ->
-            st.copy(workspace = st.workspace.copy(
-                focus = FocusRoom(obj, o.name, defaultRoomTool(kind)),
-                selection = st.workspace.selection?.takeIf { it.obj == obj }?.copy(volume = -1) ?: Selection(obj),
-                multiSelection = emptyList(), contextMenu = null))
-        }
-        when (kind) {
-            RoomKind.DESIGN -> scad.editObject(obj)
-            RoomKind.MESH -> scene.setTool(Tool.MeshEdit(kind = "face"))
+        roomOpening = true
+        store.launch {
+            try {
+                store.applyScene(store.engine.roomBegin(), dirty = false)
+            } finally {
+                roomOpening = false
+            }
+            store.update { st ->
+                st.copy(workspace = st.workspace.copy(
+                    focus = FocusRoom(obj, o.name, defaultRoomTool(kind)),
+                    selection = st.workspace.selection?.takeIf { it.obj == obj }?.copy(volume = -1) ?: Selection(obj),
+                    multiSelection = emptyList(), contextMenu = null))
+            }
+            when (kind) {
+                RoomKind.DESIGN -> scad.editObject(obj)
+                RoomKind.MESH -> scene.setTool(Tool.MeshEdit(kind = "face"))
+            }
         }
     }
 
-    /** "+ > Make a part": a new design as today, inside a room that adopts its object once the first shape is on the plate. */
+    /** "+ > Make a part": roomBegin, then a new design as today, inside a room that adopts its object once the first shape is on the plate. */
     fun makePart() {
-        if (state.value.workspace.focus != null) return
-        store.update { st ->
-            st.copy(workspace = st.workspace.copy(focus = FocusRoom(-1, store.str(R.string.shape_new_name), RoomTool.SHAPES, created = true),
-                tool = Tool.None, contextMenu = null))
+        if (state.value.workspace.focus != null || roomOpening) return
+        roomOpening = true
+        store.launch {
+            try {
+                store.applyScene(store.engine.roomBegin(), dirty = false)
+            } finally {
+                roomOpening = false
+            }
+            store.update { st ->
+                st.copy(workspace = st.workspace.copy(focus = FocusRoom(-1, store.str(R.string.shape_new_name), RoomTool.SHAPES, created = true),
+                    tool = Tool.None, contextMenu = null))
+            }
+            scad.newShapes()
         }
-        scad.newShapes()
     }
 
     /**
-     * Done, the room's one exit (the strip's button, Back, Esc, a switch to another screen): closes the builder if open, drops the
-     * tool, ends the room, and leaves the object selected. Always keeps the work.
+     * Done, the room's one exit (the strip's button, Back, Esc, a switch to another screen): lets the builder's pending render
+     * land and closes the builder if open, drops the tool, then roomEnd (the visit is one plate step), and leaves the object
+     * selected. Always keeps the work.
      */
     fun closeRoom(): Job = store.launch {
         if (state.value.workspace.focus == null) return@launch
-        if (state.value.design.scad != null) scad.close()
+        if (state.value.design.scad != null) {
+            scad.awaitIdle()
+            scad.close()?.join()
+        }
         scene.setTool(Tool.None).join()
-        store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
+        scad.awaitIdle()
+        try {
+            store.applyScene(store.engine.roomEnd(), dirty = false)
+        } finally {
+            store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
+        }
     }
 
     /** The room follows its object: a scene whose object has another name (or none) closes it; a made part is adopted once it is on the plate. */

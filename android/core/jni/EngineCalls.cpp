@@ -128,7 +128,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"hollowObject", [](OrcaEngine &e, const json &a) { return e.hollow_object(a.at("object"), a.value("instance", 0), a.at("wall")); }},
         {"smoothBlend", [](OrcaEngine &e, const json &a) { return e.smooth_blend(a.at("object"), a.value("instance", 0), a.at("radius")); }},
         {"replaceMesh", [](OrcaEngine &e, const json &a) { return e.replace_mesh(a.at("object"), a.at("path"), a.value("module", std::string())); }},
-        {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module")); }},
+        {"setObjectModule", [](OrcaEngine &e, const json &a) { return e.set_object_module(a.at("object"), a.at("module"), a.value("undo", false)); }},
         {"addVolume", [](OrcaEngine &e, const json &a) {
              return e.add_volume(a.at("object"), a.at("type"), a.value("shape", "box"), vec3(a.at("size")),
                                  a.contains("position") ? vec3(a["position"]) : vec3(json()));
@@ -170,6 +170,9 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"undo", [](OrcaEngine &e, const json &) { return e.undo(); }},
         {"redo", [](OrcaEngine &e, const json &) { return e.redo(); }},
         {"setUndoLimit", [](OrcaEngine &e, const json &a) { return e.set_undo_limit(a.at("limit").get<size_t>()); }},
+        {"roomBegin", [](OrcaEngine &e, const json &) { return e.room_begin(); }},
+        {"roomFloor", [](OrcaEngine &e, const json &) { return e.room_floor(); }},
+        {"roomEnd", [](OrcaEngine &e, const json &) { return e.room_end(); }},
         {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0), a.value("round", 0.)); }},
         {"blendSolids", [](OrcaEngine &e, const json &a) { return e.blend_solids(a.at("parts"), a.at("radius"), a.at("out")); }},
         {"addText", [](OrcaEngine &e, const json &a) {

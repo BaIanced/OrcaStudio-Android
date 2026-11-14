@@ -141,15 +141,14 @@ void OrcaEngine::push_undo()
     m_undo.push_back({std::make_shared<Model>(*m_model), m_plates});
     trim_undo();
     m_redo.clear();
+    if (m_room.open)
+        m_room.changed = true;
 }
 
 void OrcaEngine::trim_undo()
 {
-    while (m_undo.size() > m_undo_limit) {
-        m_undo.pop_front();
-        if (m_calib_undo_depth > 0)
-            --m_calib_undo_depth;
-    }
+    // While the focus room is open its entry snapshot stays (RoomUndo.hpp).
+    roomundo::trim(m_room, m_undo, m_undo_limit, m_calib_undo_depth);
 }
 
 json OrcaEngine::rollback_on_error(const std::function<json()> &edit)
@@ -160,6 +159,7 @@ json OrcaEngine::rollback_on_error(const std::function<json()> &edit)
     auto calib_config = m_calib_config;
     auto calib_name = m_calib_name;
     const size_t calib_depth = m_calib_undo_depth;
+    const roomundo::Room room = m_room;
     try {
         return edit();
     } catch (...) {
@@ -174,6 +174,7 @@ json OrcaEngine::rollback_on_error(const std::function<json()> &edit)
         m_calib_config     = std::move(calib_config);
         m_calib_name       = std::move(calib_name);
         m_calib_undo_depth = calib_depth;
+        m_room             = room;
         throw;
     }
 }
@@ -708,7 +709,7 @@ json OrcaEngine::scene_json()
             {"paint_mesh", m_paint_path},
             {"paint_version", m_paint_version},
             {"mesh_version", m_mesh_version},
-            {"can_undo", !m_undo.empty()},
+            {"can_undo", roomundo::can_undo(m_room, m_undo)},
             {"can_redo", !m_redo.empty()},
             {"calibration_active", m_calib_config != nullptr},
             {"plate_size", {rect[2] - rect[0], rect[3] - rect[1]}},
@@ -1631,10 +1632,13 @@ std::optional<std::array<double, 3>> OrcaEngine::design_offset(size_t object, si
     return std::array<double, 3>{off.x(), off.y(), box.defined ? -box.min.z() : off.z()};
 }
 
-json OrcaEngine::set_object_module(int object, const std::string &module)
+json OrcaEngine::set_object_module(int object, const std::string &module, bool undo)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    object_at(object).module_name = module;
+    ModelObject &obj = object_at(object);
+    if (undo)
+        push_undo();
+    obj.module_name = module;
     return commit();
 }
 
@@ -1825,8 +1829,11 @@ json OrcaEngine::set_plate_bed_type(int plate, const std::string &bed_type)
 json OrcaEngine::undo()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_undo.empty())
+    // In the focus room Undo stops at the tool floor.
+    if (!roomundo::can_undo(m_room, m_undo))
         throw std::runtime_error("Nothing to undo");
+    if (m_room.open)
+        m_room.changed = true;
     m_redo.push_back({std::make_shared<Model>(*m_model), m_plates});
     m_model  = std::make_unique<Model>(*m_undo.back().model);
     m_plates = m_undo.back().plates;
@@ -1847,11 +1854,34 @@ json OrcaEngine::redo()
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_redo.empty())
         throw std::runtime_error("Nothing to redo");
+    if (m_room.open)
+        m_room.changed = true;
     m_undo.push_back({std::make_shared<Model>(*m_model), m_plates});
     m_model  = std::make_unique<Model>(*m_redo.back().model);
     m_plates = m_redo.back().plates;
     m_redo.pop_back();
     return commit();
+}
+
+json OrcaEngine::room_begin()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    roomundo::begin(m_room, m_undo);
+    return scene_json();
+}
+
+json OrcaEngine::room_floor()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    roomundo::set_tool_floor(m_room, m_undo, m_redo);
+    return scene_json();
+}
+
+json OrcaEngine::room_end()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    roomundo::end(m_room, m_undo, m_redo, m_calib_undo_depth);
+    return scene_json();
 }
 
 } // namespace orca

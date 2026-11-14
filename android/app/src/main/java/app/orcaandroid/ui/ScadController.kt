@@ -294,7 +294,8 @@ class ScadController(private val store: Store) {
         if (!buildIfShapes()) preview()
     }
 
-    fun close() {
+    /** Closes the builder. Returns the job that removes the plate added for the design, if there is one (the focus room waits for it). */
+    fun close(): Job? {
         renderJob?.cancel()
         previewDelay?.cancel()
         previewJob?.cancel()
@@ -303,15 +304,14 @@ class ScadController(private val store: Store) {
         store.update { it.copy(design = it.design.copy(scad = null, scadOnPlate = false)) }
         client.release()
         // The plate added for the design goes again if nothing was placed on it.
-        addedPlate?.let { plate ->
-            addedPlate = null
-            store.launch {
-                val s = store.value.workspace.scene
-                if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
-                val scene = engine.deletePlates(listOf(plate))
-                store.applyScene(scene)
-                store.update { it.copy(workspace = it.workspace.copy(activePlate = (if (it.workspace.activePlate > plate) it.workspace.activePlate - 1 else it.workspace.activePlate).coerceIn(0, scene.plates.lastIndex))) }
-            }
+        val plate = addedPlate ?: return null
+        addedPlate = null
+        return store.launch {
+            val s = store.value.workspace.scene
+            if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
+            val scene = engine.deletePlates(listOf(plate))
+            store.applyScene(scene)
+            store.update { it.copy(workspace = it.workspace.copy(activePlate = (if (it.workspace.activePlate > plate) it.workspace.activePlate - 1 else it.workspace.activePlate).coerceIn(0, scene.plates.lastIndex))) }
         }
     }
 

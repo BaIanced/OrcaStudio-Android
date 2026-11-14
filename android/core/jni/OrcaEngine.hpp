@@ -23,6 +23,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "RoomUndo.hpp"
+
 namespace Slic3r {
 class Model;
 class ModelObject;
@@ -158,8 +160,8 @@ public:
     // STL"): settings, modifiers and instances stay, painting is remapped. Sets `module` when not empty.
     json replace_mesh(int object, const std::string &path, const std::string &module);
     // Sets ModelObject::module_name, which the 3MF keeps per object (the OpenSCAD design of an
-    // object, see ScadController.kt). No undo step: only used right after the object was added.
-    json set_object_module(int object, const std::string &module);
+    // object, see ScadController.kt). No undo step unless `undo` (the focus room's freeze clears it as a step).
+    json set_object_module(int object, const std::string &module, bool undo = false);
 
     // Adds a volume of `type` (volume_type 1..4) shaped "box"|"cylinder"|"sphere" with `size`
     // [x,y,z] mm, centred at object-local `position`.
@@ -191,10 +193,17 @@ public:
     json delete_plates(std::vector<int> plates);
     json set_plate_bed_type(int plate, const std::string &bed_type);
 
+    // While the focus room is open, Undo stops at its tool floor (scene JSON's can_undo says so).
     json undo();
     // Undo steps kept (More > Misc); the oldest are dropped beyond it.
     json set_undo_limit(size_t limit);
     json redo();
+    // The focus room (docs/design/FOCUS-ROOM.md section 7, RoomUndo.hpp). room_begin opens it at the current
+    // history depth (nothing if open); room_floor makes Undo stop at the current depth and drops Redo; room_end
+    // collapses the steps made in the room into the one step that restores the model at entry. All return the scene.
+    json room_begin();
+    json room_floor();
+    json room_end();
 
     // --- Tools needing the current selection (see set_selection) ------------------------------
 
@@ -468,6 +477,8 @@ private:
     std::array<double, 4>                 m_layout_rect{0., 0., 200., 200.}; // bed the objects are laid out for
     std::deque<Snapshot>                  m_undo, m_redo;
     size_t                                m_undo_limit = 200;
+    // The focus room: m_room.open / floor / tool_floor are the spec's m_room_open, m_room_floor, m_room_tool_floor.
+    roomundo::Room                        m_room;
     std::string                           m_printer;
     std::string                           m_preferred_bed_type; // set_default_bed_type
     bool                                  m_allow_mixed_temp = false; // slice filaments with far apart nozzle temperatures together
