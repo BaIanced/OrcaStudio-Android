@@ -1047,7 +1047,7 @@ private const val BUILD_RENDER_WAIT = 8000L
  * 90 degree steps: for each world axis the copy's own axis along it. Null for other turns, where one world axis can't be
  * scaled alone.
  */
-private fun ownAxes(rotation: Vec3): IntArray? {
+internal fun ownAxes(rotation: Vec3): IntArray? {
     fun cs(deg: Float): Pair<Int, Int>? {
         val q = deg / 90f
         val k = Math.round(q)

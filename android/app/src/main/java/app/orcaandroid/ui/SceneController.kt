@@ -186,6 +186,21 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale?.sane(), mirror) }
     }
 
+    /**
+     * Scale by reference: makes the measured length [measured] (mm) come out as [wanted], on the one selected copy, about its
+     * centre; [axis] null = the whole copy, else only along that world axis. One undo step. Returns false (with a message) when refused.
+     */
+    fun scaleToMeasure(measured: Float, wanted: Float, axis: Int?): Boolean {
+        val sel = store.value.workspace.selectedItems.singleOrNull() ?: return false
+        val inst = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return false
+        val refused = { store.toast(store.str(R.string.measure_make_refused)); false }
+        val factor = referenceFactor(measured, wanted) ?: return refused()
+        val centre = inst.min + inst.size * 0.5f
+        val (off, scale) = referenceScale(inst.offset, inst.scale, centre, factor, axis, app.orcaandroid.ui.components.ownAxes(inst.rotation)) ?: return refused()
+        setTransform(offset = off, scale = scale)
+        return true
+    }
+
     /** Moves, turns or scales the selected part (or modifier) inside its object. */
     fun setVolumeTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null) {
         val sel = selection?.takeIf { it.volume >= 0 } ?: return

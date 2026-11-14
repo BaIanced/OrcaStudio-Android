@@ -5,6 +5,9 @@ import app.orcaandroid.ui.SCULPT_MIN_MM
 import app.orcaandroid.ui.components.ScrubLabel
 import app.orcaandroid.ui.components.ScrubSlider
 import app.orcaandroid.ui.components.Vec3Fields
+import app.orcaandroid.ui.components.ownAxes
+import app.orcaandroid.ui.referenceAxis
+import app.orcaandroid.core.Vec3
 import app.orcaandroid.ui.components.NumberField
 import app.orcaandroid.ui.components.CardAction
 import app.orcaandroid.ui.components.CardActionRow
@@ -846,6 +849,7 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
             if (head != r.distance) Text(stringResource(R.string.measure_straight, "%.2f".format(Locale.ROOT, r.distance)), style = MaterialTheme.typography.bodySmall)
             r.angle?.let { Text(stringResource(R.string.measure_angle, "%.1f".format(Locale.ROOT, it)), style = MaterialTheme.typography.bodySmall) }
             Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, r.delta.x, r.delta.y, r.delta.z), style = MaterialTheme.typography.bodySmall)
+            MakeThisField(state, vm, pts[0].point, pts[1].point, head, r.delta)
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -935,5 +939,26 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
         FilledTonalButton(onClick = { vm.scene.layerAdaptive(quality) }) { Text(stringResource(R.string.adaptive)) }
         OutlinedButton(onClick = { vm.scene.layerSmooth(5, true) }) { Text(stringResource(R.string.smooth)) }
         TextButton(onClick = vm.scene::layerReset) { Text(stringResource(R.string.reset)) }
+    }
+}
+
+/** Scale by reference: "Make this ... mm" for the selected copy when both measured points lie on it. */
+@Composable
+private fun MakeThisField(state: UiState, vm: AppViewModel, a: Vec3, b: Vec3, measured: Float, delta: Vec3) {
+    val sel = state.workspace.selectedItems.singleOrNull() ?: return
+    val inst = state.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
+    // Both points on this copy: inside its box, give or take a millimetre.
+    fun on(p: Vec3) = p.x in inst.min.x - 1f..inst.min.x + inst.size.x + 1f && p.y in inst.min.y - 1f..inst.min.y + inst.size.y + 1f &&
+        p.z in inst.min.z - 1f..inst.min.z + inst.size.z + 1f
+    if (!on(a) || !on(b) || measured <= 0f) return
+    var wanted by remember(a, b) { mutableStateOf(measured) }
+    val axis = referenceAxis(b - a)?.takeIf { ownAxes(inst.rotation) != null }
+    NumberField(wanted, { wanted = it }, Modifier.fillMaxWidth(), stringResource(R.string.measure_make_label), "mm", 2, live = true)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { vm.scene.scaleToMeasure(measured, wanted, null) }) { Text(stringResource(R.string.measure_make_whole)) }
+        if (axis != null) {
+            val along = listOf(delta.x, delta.y, delta.z)[axis]
+            OutlinedButton(onClick = { vm.scene.scaleToMeasure(along, wanted, axis) }) { Text(stringResource(R.string.measure_make_axis, "XYZ"[axis].toString())) }
+        }
     }
 }

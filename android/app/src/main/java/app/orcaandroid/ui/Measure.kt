@@ -159,3 +159,42 @@ fun measureLock(a: MeasurePoint, b: MeasurePoint, axes: Boolean, steps: Boolean)
 
 private fun cross(a: Vec3, b: Vec3) = Vec3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
 private fun unit(v: Vec3) = v.length().let { if (it < 1e-9f) v else v * (1f / it) }
+
+/** Scale by reference: the smallest and largest factor a typed size may ask for. */
+const val REFERENCE_MIN_FACTOR = 0.01f
+const val REFERENCE_MAX_FACTOR = 100f
+/** "Only this direction" is offered when the measured segment is this close to a world axis (degrees). */
+const val REFERENCE_AXIS_DEG = 10f
+
+/** The factor that turns [measured] into [wanted], or null when either is not a positive number or the factor is outside 0.01..100. */
+fun referenceFactor(measured: Float, wanted: Float): Float? {
+    if (!(measured > 0f) || !(wanted > 0f) || measured.isInfinite() || wanted.isInfinite()) return null
+    val f = wanted / measured
+    return f.takeIf { it in REFERENCE_MIN_FACTOR..REFERENCE_MAX_FACTOR }
+}
+
+/** The world axis (0 / 1 / 2 = X / Y / Z) the segment [d] lies within [REFERENCE_AXIS_DEG] of, or null. */
+fun referenceAxis(d: Vec3): Int? {
+    val len = d.length()
+    if (len < 1e-6f) return null
+    val c = listOf(d.x, d.y, d.z).map { abs(it) / len }
+    val axis = c.indices.maxBy { c[it] }
+    return axis.takeIf { c[it] >= cos(Math.toRadians(REFERENCE_AXIS_DEG.toDouble())).toFloat() }
+}
+
+/**
+ * The offset and scale a copy gets when scaled by [factor] about [centre] (world): the whole object when [axis] is null,
+ * else only along world axis [axis]. [own]: for each world axis the copy's own axis along it (null when the copy is not turned
+ * in 90 degree steps; then only a whole-object scale or an unturned copy works). Null when that direction can't be scaled alone.
+ * The height is left to the engine, which drops the part onto the bed.
+ */
+fun referenceScale(offset: Vec3, scale: Vec3, centre: Vec3, factor: Float, axis: Int?, own: IntArray?): Pair<Vec3, Vec3>? {
+    val world = floatArrayOf(1f, 1f, 1f)
+    val mine = floatArrayOf(1f, 1f, 1f)
+    if (axis == null) { world.fill(factor); mine.fill(factor) } else {
+        world[axis] = factor
+        mine[(own ?: return null)[axis]] = factor
+    }
+    val off = Vec3(centre.x + (offset.x - centre.x) * world[0], centre.y + (offset.y - centre.y) * world[1], offset.z)
+    return off to Vec3(scale.x * mine[0], scale.y * mine[1], scale.z * mine[2])
+}

@@ -135,3 +135,43 @@ class MeasureTest {
         assertNull(measureResult(face(Vec3.ZERO, up), MeasurePoint(Vec3(5f, 0f, 0f), "vertex")).toPlane)
     }
 }
+
+class ReferenceScaleTest {
+    @Test fun wholeFactorIsWantedOverMeasured() {
+        assertEquals(1.25f, referenceFactor(20f, 25f)!!, 1e-6f)
+        assertEquals(0.5f, referenceFactor(20f, 10f)!!, 1e-6f)
+    }
+
+    @Test fun factorsOutsideRangeAreRefused() {
+        assertNull(referenceFactor(20f, 0.1f))
+        assertNull(referenceFactor(20f, 2001f))
+        assertNull(referenceFactor(0f, 5f))
+        assertNull(referenceFactor(20f, 0f))
+        assertEquals(100f, referenceFactor(1f, 100f)!!, 1e-4f)
+    }
+
+    @Test fun directionFactorOnlyWithinTenDegreesOfAnAxis() {
+        assertEquals(0, referenceAxis(Vec3(20f, 0f, 0f)))
+        assertEquals(2, referenceAxis(Vec3(1f, 0f, -20f)))
+        assertEquals(1, referenceAxis(Vec3(sin(Math.toRadians(9.0)).toFloat(), cos(Math.toRadians(9.0)).toFloat(), 0f)))
+        assertNull(referenceAxis(Vec3(sin(Math.toRadians(11.0)).toFloat(), cos(Math.toRadians(11.0)).toFloat(), 0f)))
+        assertNull(referenceAxis(Vec3(1f, 1f, 0f)))
+    }
+
+    @Test fun wholeScaleKeepsTheCentre() {
+        val (off, sc) = referenceScale(Vec3(110f, 100f, 10f), Vec3(1f, 1f, 1f), Vec3(110f, 100f, 10f), 1.25f, null, intArrayOf(0, 1, 2))!!
+        assertEquals(Vec3(110f, 100f, 10f), off)
+        assertEquals(Vec3(1.25f, 1.25f, 1.25f), sc)
+        val (off2, _) = referenceScale(Vec3(100f, 100f, 0f), Vec3(1f, 1f, 1f), Vec3(110f, 100f, 10f), 2f, null, null)!!
+        assertEquals(90f, off2.x, 1e-4f)
+    }
+
+    @Test fun directionScaleUsesTheCopysOwnAxis() {
+        // Copy turned so world X is its own axis 1: the scale lands on own Y.
+        val (off, sc) = referenceScale(Vec3(100f, 100f, 0f), Vec3(1f, 1f, 1f), Vec3(110f, 100f, 10f), 2f, 0, intArrayOf(1, 0, 2))!!
+        assertEquals(Vec3(1f, 2f, 1f), sc)
+        assertEquals(90f, off.x, 1e-4f)
+        assertEquals(100f, off.y, 1e-4f)
+        assertNull(referenceScale(Vec3.ZERO, Vec3(1f, 1f, 1f), Vec3.ZERO, 2f, 0, null))
+    }
+}
