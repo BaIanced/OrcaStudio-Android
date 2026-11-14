@@ -182,16 +182,20 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     /**
      * Scale by reference: makes the measured length [measured] (mm) come out as [wanted], on the one selected copy, about its
-     * centre; [axis] null = the whole copy, else only along that world axis. One undo step. Returns false (with a message) when refused.
+     * centre; [axis] null = the whole copy, else only along that world axis, on which [along] of the length lies. One undo step.
+     * The measure points are cleared (they sat on the old size). Returns false (with a message) when refused.
      */
-    fun scaleToMeasure(measured: Float, wanted: Float, axis: Int?): Boolean {
+    fun scaleToMeasure(measured: Float, wanted: Float, axis: Int?, along: Float = measured): Boolean {
         val sel = store.value.workspace.selectedItems.singleOrNull() ?: return false
         val inst = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return false
         val refused = { store.toast(store.str(R.string.measure_make_refused)); false }
-        val factor = referenceFactor(measured, wanted) ?: return refused()
+        val factor = (if (axis == null) referenceFactor(measured, wanted) else referenceAxisFactor(measured, along, wanted)) ?: return refused()
         val centre = inst.min + inst.size * 0.5f
         val (off, scale) = referenceScale(inst.offset, inst.scale, centre, factor, axis, app.orcaandroid.ui.components.ownAxes(inst.rotation)) ?: return refused()
         setTransform(offset = off, scale = scale)
+        // The points sat on the old size: left in place, a second tap would scale again from the stale length.
+        store.update { it.copy(workspace = it.workspace.copy(measure = emptyList())) }
+        store.toast(store.str(R.string.measure_make_done, "%.3f".format(java.util.Locale.ROOT, factor).trimEnd('0').trimEnd('.')))
         return true
     }
 

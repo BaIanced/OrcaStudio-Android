@@ -158,6 +158,18 @@ class ReferenceScaleTest {
         assertNull(referenceAxis(Vec3(1f, 1f, 0f)))
     }
 
+    @Test fun axisFactorMakesTheWholeLengthComeOut() {
+        // On the axis: wanted / measured.
+        assertEquals(1.25f, referenceAxisFactor(20f, 20f, 25f)!!, 1e-6f)
+        // 3 across, 4 along (length 5), wanted 3 x sqrt 5: along must become 6, so the factor is 1.5.
+        val f = referenceAxisFactor(5f, 4f, (3.0 * Math.sqrt(5.0)).toFloat())!!
+        assertEquals(1.5f, f, 1e-4f)
+        // Not longer than the part across the axis: no factor can do it.
+        assertNull(referenceAxisFactor(5f, 4f, 3f))
+        assertNull(referenceAxisFactor(5f, 0f, 6f))
+        assertNull(referenceAxisFactor(20f, 20f, 2001f))
+    }
+
     @Test fun wholeScaleKeepsTheCentre() {
         val (off, sc) = referenceScale(Vec3(110f, 100f, 10f), Vec3(1f, 1f, 1f), Vec3(110f, 100f, 10f), 1.25f, null, intArrayOf(0, 1, 2))!!
         assertEquals(Vec3(110f, 100f, 10f), off)

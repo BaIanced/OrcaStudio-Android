@@ -173,6 +173,18 @@ fun referenceFactor(measured: Float, wanted: Float): Float? {
     return f.takeIf { it in REFERENCE_MIN_FACTOR..REFERENCE_MAX_FACTOR }
 }
 
+/**
+ * The factor along one world axis that turns the length [measured], of which [along] lies on that axis, into [wanted]; the
+ * part of the length across the axis stays as it is. Null as [referenceFactor], or when [wanted] is not longer than that part.
+ */
+fun referenceAxisFactor(measured: Float, along: Float, wanted: Float): Float? {
+    if (!(measured > 0f) || !(along > 0f) || !(wanted > 0f)) return null
+    val across2 = max(0f, measured * measured - along * along)
+    val want2 = wanted * wanted - across2
+    if (!(want2 > 0f)) return null
+    return referenceFactor(along, kotlin.math.sqrt(want2))
+}
+
 /** The world axis (0 / 1 / 2 = X / Y / Z) the segment [d] lies within [REFERENCE_AXIS_DEG] of, or null. */
 fun referenceAxis(d: Vec3): Int? {
     val len = d.length()

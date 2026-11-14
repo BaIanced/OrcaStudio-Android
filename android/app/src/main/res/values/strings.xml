@@ -391,6 +391,7 @@
     <string name="measure_make_whole">Whole object</string>
     <string name="measure_make_axis">Only this direction (%1$s)</string>
     <string name="measure_make_refused">That would scale the object by less than 0.01 or more than 100 times. Type a size closer to the measured one.</string>
+    <string name="measure_make_done">Scaled %1$s times. Tap two points to measure again.</string>
     <string name="snap_toggle">Snap to edges and middles (Shift+Tab; hold Ctrl to flip while dragging)</string>
     <string name="build_others">Other objects: ghosted, shown, hidden</string>
     <string name="build_printer">Printer volume ghost</string>
