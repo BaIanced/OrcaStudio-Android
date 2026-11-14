@@ -11,6 +11,7 @@ import app.orcaandroid.core.VolumeSpec
 import app.orcaandroid.core.VolumeType
 import app.orcaandroid.render.PreviewMesh
 import app.orcaandroid.scad.PieceMatch
+import app.orcaandroid.scad.PlateShapes
 import app.orcaandroid.scad.ScadClient
 import app.orcaandroid.scad.ScadDeps
 import app.orcaandroid.scad.ScadDesign
@@ -723,11 +724,13 @@ class ScadController(private val store: Store) {
 
     /**
      * Renders a shape design piece by piece ([ShapeDesign.pieces]; only pieces not rendered before) and puts it
-     * on the plate as one volume per piece.
+     * on the plate as one volume per piece; returns the object's name, or null after showing why not. [quiet]: no
+     * editor is shown (a design added from a dialog), so a failure is a toast and the editor state stays untouched.
      */
-    private suspend fun renderPieces(s: ScadEditorState, shapes: ShapeDesign, asNew: Boolean) {
+    private suspend fun renderPieces(s: ScadEditorState, shapes: ShapeDesign, asNew: Boolean, quiet: Boolean = false): String? {
+        fun problem(res: Int) { if (quiet) store.toast(store.str(res)) else fail(res) }
         val pieces = shapes.pieces()
-        if (pieces.none { !it.hole }) { fail(R.string.scad_empty); return }
+        if (pieces.none { !it.hole }) { problem(R.string.scad_empty); return null }
         val stls = pieces.map { pieceFile(it.scad, s.file) }
         var triangles = 0
         var millis = 0L
@@ -738,7 +741,7 @@ class ScadController(private val store: Store) {
             try {
                 if (piece.scad.startsWith(ShapeDesign.BLEND_TAG)) {
                     val t0 = System.currentTimeMillis()
-                    triangles += blend(piece.scad, part) ?: return
+                    triangles += blend(piece.scad, part) ?: return null
                     millis += System.currentTimeMillis() - t0; rendered++
                     withContext(Dispatchers.IO) { if (!part.renameTo(stl)) throw java.io.IOException("Unable to keep the rendered piece") }
                     continue
@@ -746,8 +749,8 @@ class ScadController(private val store: Store) {
                 val r = client.render(piece.scad, s.file, null, part)
                 triangles += r.triangles; millis += r.millis; rendered++
                 when {
-                    !r.ok -> { set { it.copy(log = r.log) }; fail(R.string.scad_failed); return }
-                    r.stl == null && r.dimension == 2 -> { set { it.copy(log = r.log) }; fail(R.string.scad_2d); return }
+                    !r.ok -> { if (!quiet) set { it.copy(log = r.log) }; problem(R.string.scad_failed); return null }
+                    r.stl == null && r.dimension == 2 -> { if (!quiet) set { it.copy(log = r.log) }; problem(R.string.scad_2d); return null }
                 }
                 withContext(Dispatchers.IO) {
                     if (r.stl == null) part.writeBytes(ByteArray(0))
@@ -757,17 +760,73 @@ class ScadController(private val store: Store) {
                 part.delete()
             }
         }
-        if (stls.none { it.length() > 0 }) { fail(R.string.scad_empty); return }
+        if (stls.none { it.length() > 0 }) { problem(R.string.scad_empty); return null }
         val files = withContext(Dispatchers.IO) { ScadDeps.collect(s.source, s.file) }
         val name = placePieces(shapes, pieces, stls, if (asNew) null else s.onPlate,
             ScadDesign(s.name, s.source, s.values, files, shapes, pieces = true))
-        // Cached pieces weren't rendered this time, so count the whole design from the piece files.
-        val total = withContext(Dispatchers.IO) { stls.distinctBy { it.path }.sumOf { app.orcaandroid.scad.Stl.count(it) ?: 0 } }
-        val status = if (rendered == 0) store.str(R.string.scad_placed)
-            else store.str(R.string.scad_rendered, "%,d".format(maxOf(triangles, total)), "%.1f".format(millis / 1000.0))
-        set { it.copy(onPlate = name, status = status, statusError = false) }
-        saveDraft()
+        if (!quiet) {
+            // Cached pieces weren't rendered this time, so count the whole design from the piece files.
+            val total = withContext(Dispatchers.IO) { stls.distinctBy { it.path }.sumOf { app.orcaandroid.scad.Stl.count(it) ?: 0 } }
+            val status = if (rendered == 0) store.str(R.string.scad_placed)
+                else store.str(R.string.scad_rendered, "%,d".format(maxOf(triangles, total)), "%.1f".format(millis / 1000.0))
+            set { it.copy(onPlate = name, status = status, statusError = false) }
+            saveDraft()
+        }
         prunePieces()
+        return name
+    }
+
+    /**
+     * + Shape and + Text: puts a one-shape design on the active plate through the same piece path the builder uses
+     * (so "Edit in builder" reopens it with its parameters), without opening the builder. The object is named after
+     * [name] (the design's file name). The builder state, if one is open, is not touched.
+     */
+    private suspend fun placeDesign(design: ShapeDesign, name: String) {
+        renderPieces(ScadEditorState(name = name, file = draftFile.path, source = design.toScad(), shapes = design), design, asNew = true, quiet = true)
+    }
+
+    /** + Shape: one [shape] ("cube", "cylinder", "sphere", "cone") of [size] with edges rounded by [round] mm. */
+    fun addShapeDesign(shape: String, size: Vec3, round: Float) = store.launch(store.str(R.string.scad_rendering)) {
+        try {
+            val label = store.str(when (shape) {
+                "cylinder" -> R.string.shape_cylinder
+                "sphere" -> R.string.shape_sphere
+                "cone" -> R.string.shape_cone
+                else -> R.string.shape_cube
+            })
+            placeDesign(PlateShapes.primitive(shape, size.x.toDouble(), size.y.toDouble(), size.z.toDouble(), round.toDouble(), "$label 1"), "$label.scad")
+        } finally {
+            if (st == null) client.release()
+        }
+    }
+
+    /** + Text: [text] as a text shape [height] mm tall and [depth] mm thick, as wide as its letters make it. */
+    fun addTextDesign(text: String, height: Float, depth: Float) = store.launch(store.str(R.string.creating_text)) {
+        try {
+            val natural = measureText(text)
+            placeDesign(PlateShapes.text(text, height.toDouble(), depth.toDouble(), natural, store.str(R.string.shape_text) + " 1"), PlateShapes.textName(text) + ".scad")
+        } finally {
+            if (st == null) client.release()
+        }
+    }
+
+    /**
+     * A text's size at OpenSCAD's size 10 (x = width, y = height of its box, mm), as the builder's text shape sets it
+     * ([PlateShapes.textProbe]); null when it can't be measured (the design then guesses its width).
+     */
+    private suspend fun measureText(text: String): D3? {
+        val out = File(store.app.cacheDir, "openscad/probe/${System.nanoTime()}.stl")
+        return try {
+            val r = client.render(PlateShapes.textProbe(text), draftFile.path, null, out)
+            val b = r.stl?.let { f -> withContext(Dispatchers.IO) { app.orcaandroid.scad.Stl.bounds(f) } } ?: return null
+            D3(b[3] - b[0], b[4] - b[1], b[5] - b[2])
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        } finally {
+            out.delete()
+        }
     }
 
     /**

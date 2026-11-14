@@ -204,7 +204,7 @@ private fun PrimitiveDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var size by remember { mutableStateOf(Vec3(20f, 20f, 20f)) }
     var round by remember { mutableFloatStateOf(0f) }
     DialogFrame(stringResource(R.string.add_shape), stringResource(R.string.add), enabled = sizeOk(size.x, size.y, size.z),
-        onConfirm = { vm.scene.addPrimitive(shape, size, round) }, onDismiss = onDismiss) {
+        onConfirm = { vm.scad.addShapeDesign(shape, size, round) }, onDismiss = onDismiss) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             shapes.forEach { (id, label) -> FilterChip(selected = shape == id, onClick = { shape = id }, label = { Text(stringResource(label)) }) }
         }
@@ -219,7 +219,7 @@ private fun TextDialog(vm: AppViewModel, onDismiss: () -> Unit) {
     var height by remember { mutableFloatStateOf(10f) }
     var depth by remember { mutableFloatStateOf(3f) }
     DialogFrame(stringResource(R.string.add_text), stringResource(R.string.add), enabled = text.isNotBlank() && sizeOk(height, depth),
-        onConfirm = { vm.scene.addText(text, height, depth) }, onDismiss = onDismiss) {
+        onConfirm = { vm.scad.addTextDesign(text, height, depth) }, onDismiss = onDismiss) {
         OutlinedTextField(text, { text = it }, label = { Text(stringResource(R.string.text)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumberField(height, { height = it }, Modifier.weight(1f), stringResource(R.string.text_height), "mm", live = true)

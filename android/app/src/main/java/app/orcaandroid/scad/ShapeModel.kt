@@ -849,7 +849,7 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
             }
             Shape.Kind.WEDGE -> "scale([$w, $d, $h]) rotate([90, 0, 0]) linear_extrude(1, center = true) polygon([[-0.5, 0], [0.5, 0], [-0.5, 1]]);"
             Shape.Kind.TEXT -> if (s.text.isBlank()) "// (no text)" else
-                "resize([$w, $d, $h]) linear_extrude(1) text(${quote(s.text)}, size = 10, halign = \"center\", valign = \"center\");"
+                "resize([$w, $d, $h]) ${textBody(s.text)}"
             Shape.Kind.SKETCH -> sketch(s, w, d, h, edge, chamfer, inset)
             Shape.Kind.MESH -> {
                 val b = Shape.MESH_BOUNDS.map { s.x(it, 0.0) }
@@ -919,9 +919,12 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
     /** A field's code: the bound dimension's name, else the number. */
     private fun f(s: Shape, field: String, raw: Double) = s.bind[field]?.takeIf { dim(it) != null } ?: n(raw)
 
-    private fun quote(t: String) = "\"" + t.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\""
-
     companion object {
+        private fun quote(t: String) = "\"" + t.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", " ") + "\""
+
+        /** A text shape's code before it is resized to its box: the text at OpenSCAD's size 10, centred on x / y, extruded 1 mm. */
+        fun textBody(t: String) = "linear_extrude(1) text(${quote(t)}, size = 10, halign = \"center\", valign = \"center\");"
+
         /** Starts a Blend joins piece's code ([blendCode]) instead of OpenSCAD. */
         const val BLEND_TAG = "// blend joins\n"
 
