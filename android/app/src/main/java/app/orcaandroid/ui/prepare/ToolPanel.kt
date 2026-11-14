@@ -272,6 +272,11 @@ internal fun MeshEditCard(state: UiState, vm: AppViewModel, side: Boolean, modif
         // A round wall (a hole's or a peg's) about X, Y or Z: typing a diameter scales it about its axis (one undo step).
         val wall = if (tool.kind == "face") sel?.takeIf { it.version == state.workspace.scene.meshVersion.toLong() }?.let { vm.scene.meshEditRoundWall(it) } else null
         if (wall != null) NumberField(wall.diameter, { vm.scene.meshEditDiameter(wall, it) }, Modifier.fillMaxWidth(), stringResource(R.string.mesh_edit_diameter), "mm")
+        if (wall != null) {
+            var doctor by remember { mutableStateOf(false) }
+            TextButton({ doctor = true }) { Text(stringResource(R.string.doc_holes_link), style = MaterialTheme.typography.bodySmall) }
+            if (doctor) app.orcaandroid.ui.settings.PrintDoctorDialog(state, vm, onCalibration = {}, startId = "small_holes") { doctor = false }
+        }
         Vec3Fields(stringResource(R.string.mesh_edit_move), move.x.toFloat(), move.y.toFloat(), move.z.toFloat(), "mm",
             { x, y, z -> move = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, live = true, axisColours = true)
         Vec3Fields(stringResource(R.string.rotation), rotate.x.toFloat(), rotate.y.toFloat(), rotate.z.toFloat(), "°",

@@ -110,6 +110,10 @@
     <string name="doc_warping_text">Corners curl off the plate. Add a brim and a draft shield, warm the first layer and keep the fan off at the start.</string>
     <string name="doc_elephant_foot">Elephant foot</string>
     <string name="doc_elephant_foot_text">The first layers bulge outwards. Compensate the first layer and cool the bed a little.</string>
+    <string name="doc_small_holes">Holes come out too small / screws do not fit</string>
+    <string name="doc_small_holes_text">Printed holes are usually about 0.1-0.2 mm smaller than drawn. This widens every hole on the plate.</string>
+    <string name="doc_holes_link">Holes too tight when printed?</string>
+    <string name="doc_slider_value">%1$s mm</string>
     <string name="doc_layer_shift">Layer shifts</string>
     <string name="doc_layer_shift_text">Layers jump sideways. Lower the accelerations and the travel speed. Also check belts and screws.</string>
     <string name="doc_bridges">Sagging bridges</string>
