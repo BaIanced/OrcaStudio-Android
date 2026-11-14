@@ -15,7 +15,17 @@ data class FocusRoom(
     val tool: RoomTool,
     /** Entered through "+ > Make a part". */
     val created: Boolean = false,
+    /** The one-line "now made of shapes" note shows in the builder panel (first wrap of the visit). */
+    val wrapNote: Boolean = false,
+    /** The note was shown in this visit: it is not shown again. */
+    val wrapNoted: Boolean = false,
 )
+
+/**
+ * "Keep as a fixed shape?": a mesh tool was asked for on design object [obj] (named [name]); [tool] is the plate tool to open
+ * after the freeze, [room] the room tool when the room asked.
+ */
+data class FreezeAsk(val obj: Int, val name: String, val tool: Tool? = null, val room: RoomTool? = null)
 
 enum class RoomTool { SHAPES, PUSH_PULL, RESHAPE, MESH_EDIT, SKETCH }
 

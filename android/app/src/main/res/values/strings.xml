@@ -175,6 +175,15 @@
     <string name="focus_room_title">One place to edit shapes</string>
     <string name="focus_room_text">Edit shape opens every shape tool for the selected object.</string>
     <string name="edit_shape">Edit shape</string>
+    <string name="room_tool_shapes">Shapes</string>
+    <string name="room_tool_push_pull">Push / pull</string>
+    <string name="room_tool_reshape">Reshape</string>
+    <string name="room_tool_mesh_edit">Mesh edit</string>
+    <string name="room_tool_sketch">Sketch</string>
+    <string name="room_wrap_note">This model is now made of shapes. You can add shapes and holes to it.</string>
+    <string name="freeze_title">Keep as a fixed shape?</string>
+    <string name="freeze_text">Reshape and Mesh edit change the surface directly. The sizes and holes of \"%1$s\" can\'t be edited as shapes afterwards.</string>
+    <string name="freeze_keep">Keep as a fixed shape</string>
     <string name="pen">Pen</string>
     <string name="pen_ignore_fingers">Ignore fingers while the pen is near (palm rejection)</string>
     <string name="pen_button1">Pen button 1</string>

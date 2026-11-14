@@ -308,6 +308,12 @@ class ShapeController(private val store: Store, private val scad: ScadController
         return shape.id
     }
 
+    /** The sketch shape whose drawing the builder panel should open now (set by [addSketch], taken by the panel). */
+    var sketchRequest by androidx.compose.runtime.mutableStateOf<Int?>(null)
+
+    /** The palette's Sketch chip: adds a sketch shape and opens its drawing (the focus room's Sketch tool calls this too). */
+    fun addSketch() { sketchRequest = add(Shape.Kind.SKETCH) }
+
     /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
     fun addPart(part: Part) {
         val d = design ?: return

@@ -10,6 +10,7 @@ import app.orcaandroid.ai.McpTools
 import app.orcaandroid.core.AI_TOOLS_PORT
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.Translator
+import app.orcaandroid.scad.ScadDesign
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -51,6 +52,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     init {
         device.files = files
         files.scad = scad
+        scene.freezeObject = ::freezeObject
         viewModelScope.launch {
             runCatching { start() }
                 .onFailure { e -> store.update { it.copy(chrome = it.chrome.copy(phase = Phase.SETUP, error = e.message ?: e.toString())) } }
@@ -196,6 +198,97 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
         }
     }
+
+    /** A room tool switch is on its way (conversions take a moment): taps on the toolbar meanwhile are ignored. */
+    private var roomRouting = false
+
+    /** Section 5's routing table: the toolbar's tap on [tool]. A tool of the other family converts the object first. */
+    fun setRoomTool(tool: RoomTool) {
+        if (state.value.workspace.focus == null || roomRouting) return
+        roomRouting = true
+        store.launch {
+            try {
+                routeRoomTool(tool, confirmed = false)
+            } finally {
+                roomRouting = false
+            }
+        }
+    }
+
+    private suspend fun routeRoomTool(tool: RoomTool, confirmed: Boolean) {
+        val f = state.value.workspace.focus ?: return
+        val obj = store.value.workspace.scene.objects.getOrNull(f.obj)
+        // A visit that has no object on the plate yet is a design in the builder.
+        val design = f.obj < 0 || roomKind(obj) == RoomKind.DESIGN
+        var wrapped = false
+        when (tool) {
+            RoomTool.SHAPES, RoomTool.SKETCH, RoomTool.PUSH_PULL ->
+                if (tool == RoomTool.PUSH_PULL && !design) scene.setTool(Tool.MeshEdit(kind = "face")).join()
+                else {
+                    if (!design) {
+                        // Wrap (mesh -> design): lossless, no question; the builder's own history starts here.
+                        scene.setTool(Tool.None).join()
+                        scad.editMesh(f.obj).join()
+                        if (roomKind(store.value.workspace.scene.objects.getOrNull(f.obj)) != RoomKind.DESIGN) return
+                        store.applyScene(store.engine.roomFloor(), dirty = false)
+                        wrapped = true
+                    } else if (state.value.design.scad == null && f.obj >= 0) scad.editObject(f.obj).join()
+                    shapes.setPushPull(tool == RoomTool.PUSH_PULL)
+                    if (tool == RoomTool.SKETCH) shapes.addSketch()
+                }
+            RoomTool.RESHAPE, RoomTool.MESH_EDIT -> {
+                if (f.obj < 0 || obj == null) return
+                if (design) {
+                    // Freeze (design -> mesh) is the one conversion that loses something: ask first, once per freeze.
+                    if (!confirmed && ScadDesign.of(obj)?.shapes?.isPlainWrap() != true) {
+                        store.update { it.copy(workspace = it.workspace.copy(freezeAsk = FreezeAsk(f.obj, obj.name, room = tool))) }
+                        return
+                    }
+                    freezeObject(f.obj)
+                }
+                if (tool == RoomTool.RESHAPE) scene.openReshape().join() else scene.setTool(Tool.MeshEdit()).join()
+            }
+        }
+        store.update { st ->
+            val cur = st.workspace.focus ?: return@update st
+            st.copy(workspace = st.workspace.copy(focus = cur.copy(tool = tool,
+                wrapNote = wrapped && !cur.wrapNoted, wrapNoted = cur.wrapNoted || wrapped)))
+        }
+    }
+
+    /**
+     * Design -> mesh: closes the builder (its last render first) and clears the design tag as one undoable plate step; in a
+     * room the plate history then starts here ([roomFloor]).
+     */
+    private suspend fun freezeObject(obj: Int) {
+        if (state.value.design.scad != null) {
+            scad.awaitIdle()
+            scad.close()?.join()
+        }
+        store.applyScene(store.engine.setObjectModule(obj, "", undo = true))
+        if (state.value.workspace.focus != null) store.applyScene(store.engine.roomFloor(), dirty = false)
+    }
+
+    /** "Keep as a fixed shape": freezes the object and opens the tool that was asked for. */
+    fun confirmFreeze() {
+        val ask = state.value.workspace.freezeAsk ?: return
+        store.update { it.copy(workspace = it.workspace.copy(freezeAsk = null)) }
+        roomRouting = true
+        store.launch {
+            try {
+                if (ask.room != null) routeRoomTool(ask.room, confirmed = true)
+                else {
+                    freezeObject(ask.obj)
+                    ask.tool?.let { scene.setTool(it).join() }
+                }
+            } finally {
+                roomRouting = false
+            }
+        }
+    }
+
+    /** Cancel: the tool stays as it was. */
+    fun cancelFreeze() = store.update { it.copy(workspace = it.workspace.copy(freezeAsk = null)) }
 
     /** The room follows its object: a scene whose object has another name (or none) closes it; a made part is adopted once it is on the plate. */
     private fun watchRoom() {

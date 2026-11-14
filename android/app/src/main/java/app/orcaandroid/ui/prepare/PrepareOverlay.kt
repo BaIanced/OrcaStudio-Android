@@ -192,12 +192,13 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 Column(Modifier.verticalScroll(scroll), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ViewButtons(state, vm, view, rail = true, undoRedo = state.room == null)
                     HorizontalDivider(Modifier.width(48.dp).padding(horizontal = 8.dp))
-                    ToolButtons(state, vm)
+                    // The focus room has its own toolbar (RoomToolbar) in place of these.
+                    if (state.workspace.focus == null) ToolButtons(state, vm)
                 }
                 ScrollCue(scroll, up = true, Modifier.align(Alignment.TopCenter))
                 ScrollCue(scroll, up = false, Modifier.align(Alignment.BottomCenter))
             }
-        } else {
+        } else if (state.workspace.focus == null) {
             val defaultY = maxOf(0f, (containerSize.height - rowSize.height - with(density) { 64.dp.roundToPx() }).toFloat())
             val rowScroll = rememberScrollState()
             Row(

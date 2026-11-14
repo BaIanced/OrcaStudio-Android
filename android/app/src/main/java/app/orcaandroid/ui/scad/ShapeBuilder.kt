@@ -129,6 +129,8 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     var topOf by remember { mutableStateOf<Int?>(null) }
     var pathOf by remember { mutableStateOf<Int?>(null) }
     val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
+    // The Sketch chip (and the focus room's Sketch tool) ask for the drawing through the controller.
+    sh.sketchRequest?.let { id -> LaunchedEffect(id) { sketching = id; sh.sketchRequest = null } }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
@@ -173,11 +175,15 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             }
         }.verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
     ) {
+        vm.state.collectAsState().value.workspace.focus?.takeIf { it.wrapNote }?.let {
+            Text(stringResource(R.string.room_wrap_note), Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(stringResource(R.string.shape_add), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PALETTE.forEach { k ->
-                AssistChip(onClick = { val id = sh.add(k); if (k == Shape.Kind.SKETCH) sketching = id; runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
+                AssistChip(onClick = { if (k == Shape.Kind.SKETCH) sh.addSketch() else sh.add(k); runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
             }
             AssistChip(onClick = { stl.launch(arrayOf("model/stl", "application/sla", "application/vnd.ms-pki.stl", "application/octet-stream", "*/*")) },

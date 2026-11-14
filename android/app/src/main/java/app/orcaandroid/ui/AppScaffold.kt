@@ -320,6 +320,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val shop = state.inPaintShop
     Column(Modifier.fillMaxSize()) {
         if (room != null) app.orcaandroid.ui.prepare.RoomBar(room, state, vm, plateView)
+        if (state.workspace.focus != null && state.chrome.screen == Screen.PREPARE) app.orcaandroid.ui.prepare.RoomToolbar(state, vm)
+        app.orcaandroid.ui.prepare.FreezeDialog(state, vm)
         Box(Modifier.weight(1f).fillMaxWidth()) { WorkspaceBody(state, vm, wide, shop, viewport, plateView) }
     }
 }

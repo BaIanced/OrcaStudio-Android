@@ -230,6 +230,23 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     fun encode(): String = json().toString()
 
+    /**
+     * Still the lossless wrap [ScadController.editMesh] made of a plain mesh object: every shape a top-level MESH shape that
+     * stands where its volume stood (the position and size the file's bounds give), unturned, unmirrored, with no repeat,
+     * binding or push / pull, and no shape added in the builder (a hole shape of another kind, a group). Freezing such a
+     * design back to a mesh loses nothing, so the room does not ask first (docs/design/FOCUS-ROOM.md section 5).
+     */
+    fun isPlainWrap(): Boolean = shapes.isNotEmpty() && shapes.all { s ->
+        val b = Shape.MESH_BOUNDS.map { s.extra[it] }
+        if (s.kind != Shape.Kind.MESH || s.children.isNotEmpty() || s.repeat != null || s.faces.isNotEmpty() || s.bind.isNotEmpty() ||
+            s.rot != D3() || s.mirror != D3() || b.any { it == null }) return@all false
+        val v = b.map { it!! }
+        val x0 = v[0]; val y0 = v[1]; val z0 = v[2]; val x1 = v[3]; val y1 = v[4]; val z1 = v[5]
+        fun near(a: Double, c: Double) = abs(a - c) < 0.005
+        near(s.size.x, max(0.01, x1 - x0)) && near(s.size.y, max(0.01, y1 - y0)) && near(s.size.z, max(0.01, z1 - z0)) &&
+            near(s.pos.x, (x0 + x1) / 2) && near(s.pos.y, (y0 + y1) / 2) && near(s.pos.z, z0)
+    }
+
     fun find(id: Int): Shape? = shapes.asSequence().flatMap { it.all() }.firstOrNull { it.id == id }
 
     /** The groups that hold [id], outermost first, then the shape itself; empty when there is none. */

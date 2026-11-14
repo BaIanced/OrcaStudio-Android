@@ -164,6 +164,8 @@ data class SceneState(
     val tool: Tool = Tool.None,
     /** The focus room while it is open (setting `focusRoom`); the selection does not change meanwhile. */
     val focus: FocusRoom? = null,
+    /** The "Keep as a fixed shape?" question while it is open (a shape tool on a design object, FOCUS-ROOM.md section 5). */
+    val freezeAsk: FreezeAsk? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     /**
