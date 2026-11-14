@@ -162,6 +162,8 @@ data class SceneState(
     /** Taps on the 3D view and the object list add or remove objects instead of replacing the selection. */
     val selectMode: Boolean = false,
     val tool: Tool = Tool.None,
+    /** The focus room while it is open (setting `focusRoom`); the selection does not change meanwhile. */
+    val focus: FocusRoom? = null,
     /** Where the 3D view's context menu is open (view pixels), or null. */
     val contextMenu: Pair<Float, Float>? = null,
     /**
@@ -250,8 +252,8 @@ data class SceneState(
     /** The rotate gizmo is on for the lone selected copy. */
     val rotating: Boolean get() = rotateFor != null && selectedItems.singleOrNull() == rotateFor
 
-    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. */
-    fun withSelected(items: List<Selection>) = copy(
+    /** Selects the copies [items]: one becomes the single selection, more a multi-selection. A focus room keeps its selection. */
+    fun withSelected(items: List<Selection>) = if (focus != null) this else copy(
         selection = items.singleOrNull(),
         multiSelection = if (items.size > 1) items else emptyList(),
         tool = if (items.size == 1) tool else Tool.None,
@@ -335,6 +337,8 @@ data class ChromeState(
     /** The floating colour panel is open over the app (design mode). */
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
+    /** Experimental setting "One place to edit shapes" (the focus room, docs/design/FOCUS-ROOM.md). */
+    val focusRoom: Boolean = false,
     val coachDismissed: Boolean = true,
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */

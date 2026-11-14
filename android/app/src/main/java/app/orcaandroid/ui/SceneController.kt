@@ -52,8 +52,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun selectPlate(plate: Int) = store.update { it.copy(workspace = it.workspace.copy(activePlate = plate)) }
 
+    /** Ignored while the focus room is open: it keeps its object selected until Done. */
     fun select(selection: Selection?) = store.update {
-        it.copy(workspace = it.workspace.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.workspace.tool))
+        if (it.workspace.focus != null) it
+        else it.copy(workspace = it.workspace.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.workspace.tool))
     }
 
     /** Adds every copy of the object to the selection, or removes them (the object list in select mode). */
@@ -454,7 +456,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val hit = if ((store.value.workspace.tool == Tool.Measure || store.value.workspace.tool is Tool.Cut) && pxSize != null)
             measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap && !part)
             else pick(origin, dir, section)
-        if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None) {
+        if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None && store.value.workspace.focus == null) {
             selectPlate(emptyPlate)
             return@launch
         }

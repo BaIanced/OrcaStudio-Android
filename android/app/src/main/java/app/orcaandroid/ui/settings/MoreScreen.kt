@@ -217,6 +217,12 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
                 AutoSaveRow(state.chrome.autoSaveSeconds, vm::setAutoSave)
             }
 
+            // Collapsed: unfinished features that are off by default.
+            Section(stringResource(R.string.experimental)) {
+                SwitchRow(stringResource(R.string.focus_room_title), state.chrome.focusRoom, onChange = vm::setFocusRoom)
+                Text(stringResource(R.string.focus_room_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
             Section(stringResource(R.string.about), summary = BuildConfig.VERSION_NAME) { About() }
         }
     }

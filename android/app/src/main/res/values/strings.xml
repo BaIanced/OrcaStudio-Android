@@ -171,6 +171,10 @@
     <string name="duplicate">Duplicate</string>
     <string name="dynamic_color">Use wallpaper colors</string>
     <string name="misc">Misc</string>
+    <string name="experimental">Experimental</string>
+    <string name="focus_room_title">One place to edit shapes</string>
+    <string name="focus_room_text">Edit shape opens every shape tool for the selected object.</string>
+    <string name="edit_shape">Edit shape</string>
     <string name="pen">Pen</string>
     <string name="pen_ignore_fingers">Ignore fingers while the pen is near (palm rejection)</string>
     <string name="pen_button1">Pen button 1</string>

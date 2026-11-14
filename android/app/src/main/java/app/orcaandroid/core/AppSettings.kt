@@ -184,6 +184,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("double_back_quit", false)
         set(value) = prefs.edit().putBoolean("double_back_quit", value).apply()
 
+    /** Experimental: the focus room ("Edit shape"), one place for every shape tool (docs/design/FOCUS-ROOM.md). */
+    var focusRoom: Boolean
+        get() = prefs.getBoolean("focus_room", false)
+        set(value) = prefs.edit().putBoolean("focus_room", value).apply()
+
     /** The first-run "print in 3 taps" strip on Prepare was closed (or the first print was sent). */
     var coachDismissed: Boolean
         get() = prefs.getBoolean("coach_dismissed", false)

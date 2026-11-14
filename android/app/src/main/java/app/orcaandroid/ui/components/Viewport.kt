@@ -59,6 +59,7 @@ import app.orcaandroid.render.ViewColors
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.Screen
 import app.orcaandroid.ui.buildObject
+import app.orcaandroid.ui.isolated
 import app.orcaandroid.ui.measureLockColor
 import app.orcaandroid.ui.Selection
 import app.orcaandroid.ui.Tool
@@ -691,14 +692,14 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     // The paint shop's view is smaller than the plate view: it frames the painted copy on entry (same view angles) and
     // Done puts the plate camera back.
     // The Build workspace does the same with its object.
-    val focused = solo || state.buildObject != null
+    val focused = solo || state.isolated != null
     // The box to frame: the painted copy, or the build object's copies (null while the scene has none yet, so the effect runs again).
     val focusTarget: Pair<Vec3, Vec3>? = if (!focused) null else if (solo) state.workspace.selectedObject?.instances?.getOrNull(state.workspace.selection?.instance ?: 0)?.let { it.min to (it.min + it.size) }
-        else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
+        else state.isolated?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { insts ->
             Vec3(insts.minOf { it.min.x }, insts.minOf { it.min.y }, insts.minOf { it.min.z }) to
                 Vec3(insts.maxOf { it.min.x + it.size.x }, insts.maxOf { it.min.y + it.size.y }, insts.maxOf { it.min.z + it.size.z })
         }
-    val focusPlate = if (solo) null else state.buildObject?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.firstOrNull()?.plate
+    val focusPlate = if (solo) null else state.isolated?.let { state.workspace.scene.objects.getOrNull(it) }?.instances?.firstOrNull()?.plate
     LaunchedEffect(v, focused, focusTarget != null) {
         val plate = shopCamera
         if (focused && plate == null) {
@@ -841,10 +842,12 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         v.onGl { filamentColors = cols; filamentMaterials = mats }
     }
     val build = state.buildObject?.let { scene.objects.getOrNull(it) }
-    LaunchedEffect(v, build != null) { v.onGl { buildSolo = build != null } }
+    // The isolate view: the build object, or in the focus room the object a mesh tool works on (the engine's build object, see AppViewModel).
+    val isolate = state.isolated?.let { scene.objects.getOrNull(it) }
+    LaunchedEffect(v, isolate != null) { v.onGl { buildSolo = isolate != null } }
     LaunchedEffect(v, state.design.buildOthers) { v.onGl { buildOthers = state.design.buildOthers } }
     // Assemble space: the floor and printer ghost centre on the build object's shown copies.
-    val focusBox = build?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { s ->
+    val focusBox = isolate?.instances?.takeIf { it.isNotEmpty() }?.map { it.shown }?.let { s ->
         listOf(s.minOf { it.min.x }, s.minOf { it.min.y }, s.minOf { it.min.z },
             s.maxOf { it.min.x + it.size.x }, s.maxOf { it.min.y + it.size.y }, s.maxOf { it.min.z + it.size.z })
     }

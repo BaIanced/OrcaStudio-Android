@@ -172,6 +172,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
+            // The focus room's one exit is Done; Back does the same (the sketch editor takes Back first, in its own handler).
+            state.workspace.focus != null && state.chrome.screen == Screen.PREPARE -> vm.closeRoom()
             state.design.scad != null && state.chrome.screen == Screen.PREPARE -> if (state.design.scadOnPlate && state.design.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
             state.chrome.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)

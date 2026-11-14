@@ -4,12 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.orcaandroid.CrashReport
+import app.orcaandroid.R
 import app.orcaandroid.ai.McpServer
 import app.orcaandroid.ai.McpTools
 import app.orcaandroid.core.AI_TOOLS_PORT
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.Translator
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,10 +64,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 s?.nozzleDiameter?.let(presets::recordNozzle)
             }
         }
-        // The Build workspace's object, for the engine's per-volume selection ids.
+        // The Build workspace's object, for the engine's per-volume selection ids; the focus room's mesh tools use it too (isolate view).
         viewModelScope.launch {
-            store.state.map { it.buildObject }.distinctUntilChanged().collect { scad.showBuild(it) }
+            store.state.map { it.isolated }.distinctUntilChanged().collect { scad.showBuild(it) }
         }
+        watchRoom()
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(chrome = it.chrome.copy(crashReport = report)) }
@@ -117,10 +120,80 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) }
     }
 
-    fun setScreen(screen: Screen) = store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
+    fun setScreen(screen: Screen) {
+        if (screen != Screen.PREPARE && state.value.workspace.focus != null) closeRoom()
+        store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
+    }
+
+    // --- Focus room (docs/design/FOCUS-ROOM.md; the engine's roomBegin / roomEnd calls come with T-052) -------------
+
+    /** "Edit shape": opens the room on object [obj] with the default tool, today's calls open it (the builder for a design, Push / pull for a mesh). */
+    fun openRoom(obj: Int) {
+        val s = state.value
+        if (!s.chrome.focusRoom || s.workspace.focus != null) return
+        val o = s.workspace.scene.objects.getOrNull(obj)?.takeIf(::hasRoom) ?: return
+        val kind = roomKind(o)
+        store.update { st ->
+            st.copy(workspace = st.workspace.copy(
+                focus = FocusRoom(obj, o.name, defaultRoomTool(kind)),
+                selection = st.workspace.selection?.takeIf { it.obj == obj }?.copy(volume = -1) ?: Selection(obj),
+                multiSelection = emptyList(), contextMenu = null))
+        }
+        when (kind) {
+            RoomKind.DESIGN -> scad.editObject(obj)
+            RoomKind.MESH -> scene.setTool(Tool.MeshEdit(kind = "face"))
+        }
+    }
+
+    /** "+ > Make a part": a new design as today, inside a room that adopts its object once the first shape is on the plate. */
+    fun makePart() {
+        if (state.value.workspace.focus != null) return
+        store.update { st ->
+            st.copy(workspace = st.workspace.copy(focus = FocusRoom(-1, store.str(R.string.shape_new_name), RoomTool.SHAPES, created = true),
+                tool = Tool.None, contextMenu = null))
+        }
+        scad.newShapes()
+    }
+
+    /**
+     * Done, the room's one exit (the strip's button, Back, Esc, a switch to another screen): closes the builder if open, drops the
+     * tool, ends the room, and leaves the object selected. Always keeps the work.
+     */
+    fun closeRoom(): Job = store.launch {
+        if (state.value.workspace.focus == null) return@launch
+        if (state.value.design.scad != null) scad.close()
+        scene.setTool(Tool.None).join()
+        store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
+    }
+
+    /** The room follows its object: a scene whose object has another name (or none) closes it; a made part is adopted once it is on the plate. */
+    private fun watchRoom() {
+        viewModelScope.launch {
+            store.state.map { s ->
+                s.workspace.focus?.let { f ->
+                    when {
+                        roomGone(f, s.workspace.scene.objects) -> f to ROOM_GONE
+                        f.created && f.obj < 0 -> s.buildObject?.let { f to it }
+                        else -> null
+                    }
+                }
+            }.distinctUntilChanged().collect { m ->
+                val (f, obj) = m ?: return@collect
+                if (obj == ROOM_GONE) closeRoom()
+                else store.update { s ->
+                    if (s.workspace.focus != f) s
+                    else s.copy(workspace = s.workspace.copy(focus = f.copy(obj = obj, name = s.workspace.scene.objects.getOrNull(obj)?.name ?: f.name),
+                        selection = Selection(obj), multiSelection = emptyList()))
+                }
+            }
+        }
+    }
 
     /** Shows [url] in the Models tab's browser. */
-    fun openInModels(url: String) = store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+    fun openInModels(url: String) {
+        if (state.value.workspace.focus != null) closeRoom()
+        store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+    }
 
     fun modelsUrlOpened() = store.update { it.copy(chrome = it.chrome.copy(modelsUrl = null)) }
 
@@ -293,6 +366,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(doubleBackToQuit = on)) }
     }
 
+    fun setFocusRoom(on: Boolean) {
+        store.settings.focusRoom = on
+        store.update { it.copy(chrome = it.chrome.copy(focusRoom = on)) }
+    }
+
     fun setAutoSlice(on: Boolean) {
         store.settings.autoSlice = on
         store.update { it.copy(slicing = it.slicing.copy(autoSlice = on)) }
@@ -454,3 +532,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(chrome = it.chrome.copy(error = message)) }
 }
+
+/** [AppViewModel.watchRoom]: the room's object is gone. */
+private const val ROOM_GONE = -2

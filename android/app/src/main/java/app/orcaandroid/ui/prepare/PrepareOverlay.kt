@@ -143,6 +143,8 @@ import app.orcaandroid.ui.components.PickerDialog
 import app.orcaandroid.ui.components.PickerItem
 import app.orcaandroid.ui.components.framePlate
 import app.orcaandroid.ui.buildObject
+import app.orcaandroid.ui.canEditShape
+import app.orcaandroid.ui.roomOwnsShapes
 import app.orcaandroid.ui.components.showPlate
 
 /** Controls over the 3D view on the Prepare screen. */
@@ -350,6 +352,8 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {
                 val sel = state.workspace.selection
+                // Focus room (setting on): "Edit shape" first; the old builder row below goes, except for code designs (no room).
+                if (state.canEditShape && sel != null) EditShapeItem(vm, sel.obj, close)
                 if (state.workspace.selectedItems.isNotEmpty()) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.duplicate)) }, leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                         onClick = { close(); vm.scene.duplicate(1) })
@@ -378,8 +382,9 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                 }
                 if (sel != null) {
                     // Every object opens in the builder: a design as itself, a plain mesh as one MESH shape per part.
-                    DropdownMenuItem(text = { Text(stringResource(R.string.edit_in_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
-                        trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.editMesh(sel.obj) })
+                    if (!state.roomOwnsShapes(sel.obj))
+                        DropdownMenuItem(text = { Text(stringResource(R.string.edit_in_builder)) }, leadingIcon = { Icon(Icons.Default.Architecture, null) },
+                            trailingIcon = { CadBadge() }, onClick = { close(); vm.scad.editMesh(sel.obj) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.select_multiple)) }, leadingIcon = { Icon(Icons.Default.SelectAll, null) },
                         onClick = { close(); vm.scene.setSelectMode(true) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.lay_on_face)) }, leadingIcon = { Icon(Icons.Default.VerticalAlignBottom, null) },
@@ -406,7 +411,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
                         onClick = { close(); dialog = "text" })
                     DropdownMenuItem(text = { Text(stringResource(R.string.add_svg)) }, leadingIcon = { Icon(Icons.Default.Category, null) },
                         onClick = { close(); dialog = "svg" })
-                    DesignEntries(vm, close)
+                    DesignEntries(state, vm, close)
                     if (!state.workspace.scene.isEmpty)
                         DropdownMenuItem(text = { Text(stringResource(R.string.arrange)) }, leadingIcon = { Icon(Icons.Default.AutoAwesomeMosaic, null) },
                             onClick = { close(); vm.scene.arrange(false) })
@@ -675,6 +680,7 @@ private fun ToolButtons(
                         DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { moreGroup = if (open) null else id },
                             trailingIcon = { Icon(if (open) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, null) })
                     }
+                    if (state.canEditShape && state.workspace.selection != null) EditShapeItem(vm, state.workspace.selection.obj) { moreMenu = false; moreGroup = null }
                     groupHeader("volume", R.string.more_add_volume)
                     if (moreGroup == "volume") listOf(
                         R.string.add_part to VolumeType.PART, R.string.add_modifier to VolumeType.MODIFIER,
@@ -692,8 +698,11 @@ private fun ToolButtons(
                         item(R.string.check_mesh) { dialog = "check" }
                     }
                     HorizontalDivider()
-                    DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.openReshape() })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
+                    // The focus room has these two (Reshape, Push / pull) in its own toolbar.
+                    if (!state.roomOwnsShapes(state.workspace.selection?.obj ?: -1)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.sculpt)) }, onClick = { moreMenu = false; vm.scene.openReshape() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.mesh_edit)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.MeshEdit()) })
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.measure)) }, onClick = { moreMenu = false; vm.scene.setTool(Tool.Measure) },
                         leadingIcon = { Icon(Icons.Default.Straighten, null) })
                 }
