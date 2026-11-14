@@ -5,6 +5,9 @@ import app.orcaandroid.ui.SCULPT_MIN_MM
 import app.orcaandroid.ui.components.ScrubLabel
 import app.orcaandroid.ui.components.ScrubSlider
 import app.orcaandroid.ui.components.Vec3Fields
+import app.orcaandroid.ui.components.ownAxes
+import app.orcaandroid.ui.referenceAxis
+import app.orcaandroid.core.Vec3
 import app.orcaandroid.ui.components.NumberField
 import app.orcaandroid.ui.components.CardAction
 import app.orcaandroid.ui.components.CardActionRow
@@ -272,6 +275,11 @@ internal fun MeshEditCard(state: UiState, vm: AppViewModel, side: Boolean, modif
         // A round wall (a hole's or a peg's) about X, Y or Z: typing a diameter scales it about its axis (one undo step).
         val wall = if (tool.kind == "face") sel?.takeIf { it.version == state.workspace.scene.meshVersion.toLong() }?.let { vm.scene.meshEditRoundWall(it) } else null
         if (wall != null) NumberField(wall.diameter, { vm.scene.meshEditDiameter(wall, it) }, Modifier.fillMaxWidth(), stringResource(R.string.mesh_edit_diameter), "mm")
+        if (wall != null) {
+            var doctor by remember { mutableStateOf(false) }
+            TextButton({ doctor = true }) { Text(stringResource(R.string.doc_holes_link), style = MaterialTheme.typography.bodySmall) }
+            if (doctor) app.orcaandroid.ui.settings.PrintDoctorDialog(state, vm, onCalibration = {}, startId = "small_holes") { doctor = false }
+        }
         Vec3Fields(stringResource(R.string.mesh_edit_move), move.x.toFloat(), move.y.toFloat(), move.z.toFloat(), "mm",
             { x, y, z -> move = D3(x.toDouble(), y.toDouble(), z.toDouble()) }, live = true, axisColours = true)
         Vec3Fields(stringResource(R.string.rotation), rotate.x.toFloat(), rotate.y.toFloat(), rotate.z.toFloat(), "°",
@@ -841,6 +849,13 @@ private fun MeasureOptions(state: UiState, vm: AppViewModel) {
             if (head != r.distance) Text(stringResource(R.string.measure_straight, "%.2f".format(Locale.ROOT, r.distance)), style = MaterialTheme.typography.bodySmall)
             r.angle?.let { Text(stringResource(R.string.measure_angle, "%.1f".format(Locale.ROOT, it)), style = MaterialTheme.typography.bodySmall) }
             Text("ΔX %.2f  ΔY %.2f  ΔZ %.2f".format(Locale.ROOT, r.delta.x, r.delta.y, r.delta.z), style = MaterialTheme.typography.bodySmall)
+            // The direction the headline is measured along: square to the face, along the lock, else point to point.
+            val dir = when {
+                r.gap != null || r.toPlane != null -> (pts[0].normal.takeIf { pts[0].isPlane } ?: pts[1].normal) ?: (pts[1].point - pts[0].point)
+                lock != null -> lock.dir
+                else -> pts[1].point - pts[0].point
+            }
+            MakeThisField(state, vm, pts[0].point, pts[1].point, head, dir)
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -930,5 +945,27 @@ private fun LayerHeightOptions(state: UiState, vm: AppViewModel) {
         FilledTonalButton(onClick = { vm.scene.layerAdaptive(quality) }) { Text(stringResource(R.string.adaptive)) }
         OutlinedButton(onClick = { vm.scene.layerSmooth(5, true) }) { Text(stringResource(R.string.smooth)) }
         TextButton(onClick = vm.scene::layerReset) { Text(stringResource(R.string.reset)) }
+    }
+}
+
+/** Scale by reference: "Make this ... mm" for the selected copy when both measured points lie on it. */
+@Composable
+private fun MakeThisField(state: UiState, vm: AppViewModel, a: Vec3, b: Vec3, measured: Float, dir: Vec3) {
+    val sel = state.workspace.selectedItems.singleOrNull() ?: return
+    val inst = state.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return
+    // Both points on this copy: inside its box, give or take a millimetre.
+    fun on(p: Vec3) = p.x in inst.min.x - 1f..inst.min.x + inst.size.x + 1f && p.y in inst.min.y - 1f..inst.min.y + inst.size.y + 1f &&
+        p.z in inst.min.z - 1f..inst.min.z + inst.size.z + 1f
+    if (!on(a) || !on(b) || measured <= 0f) return
+    var wanted by remember(a, b) { mutableStateOf(measured) }
+    val axis = referenceAxis(dir)?.takeIf { ownAxes(inst.rotation) != null }
+    NumberField(wanted, { wanted = it }, Modifier.fillMaxWidth(), stringResource(R.string.measure_make_label), "mm", 2, live = true)
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { vm.scene.scaleToMeasure(measured, wanted, null) }) { Text(stringResource(R.string.measure_make_whole)) }
+        if (axis != null) {
+            // How much of the measured length lies on that axis; the factor makes the whole length come out as typed.
+            val along = measured * kotlin.math.abs(listOf(dir.x, dir.y, dir.z)[axis]) / dir.length()
+            OutlinedButton(onClick = { vm.scene.scaleToMeasure(measured, wanted, axis, along) }) { Text(stringResource(R.string.measure_make_axis, "XYZ"[axis].toString())) }
+        }
     }
 }

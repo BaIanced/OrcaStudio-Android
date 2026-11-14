@@ -304,7 +304,7 @@ private fun CoachStrip(state: UiState, vm: AppViewModel) {
                     else -> R.string.coach_send
                 }), Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall)
                 when (step) {
-                    1 -> androidx.compose.material3.TextButton(onClick = { vm.scene.addPrimitive("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f)) }) { Text(stringResource(R.string.coach_add_button)) }
+                    1 -> androidx.compose.material3.TextButton(onClick = { vm.scad.addShapeDesign("cube", app.orcaandroid.core.Vec3(25f, 25f, 25f), 0f) }) { Text(stringResource(R.string.coach_add_button)) }
                     3 -> androidx.compose.material3.TextButton(onClick = { vm.setScreen(Screen.DEVICE) }) { Text(stringResource(R.string.coach_send_button)) }
                 }
                 androidx.compose.material3.IconButton(onClick = vm::dismissCoach) { Icon(Icons.Default.Close, stringResource(R.string.coach_close)) }

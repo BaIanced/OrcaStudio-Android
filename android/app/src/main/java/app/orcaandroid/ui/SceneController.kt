@@ -126,12 +126,6 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun addSample(file: File) = store.sceneOp(store.str(R.string.loading_model)) { engine.loadModels(listOf(file.path), true, activePlate) }
 
-    fun addPrimitive(shape: String, size: Vec3, round: Float = 0f) = store.sceneOp { engine.addPrimitive(shape, size, activePlate, round) }
-
-    fun addText(text: String, height: Float, depth: Float) = store.sceneOp(store.str(R.string.creating_text)) {
-        engine.addText(text, resources.defaultFont(), height, depth, activePlate)
-    }
-
     fun addSvg(uri: Uri, width: Float, depth: Float) = store.sceneOp(store.str(R.string.loading_model)) {
         engine.addSvg(resources.importFile(uri).path, width, depth, activePlate)
     }
@@ -184,6 +178,25 @@ class SceneController(private val store: Store, private val presets: PresetContr
     fun setTransform(offset: Vec3? = null, rotation: Vec3? = null, scale: Vec3? = null, mirror: Vec3? = null) {
         val sel = selection ?: return
         store.sceneOp { engine.setTransform(sel.obj, sel.instance, offset, rotation, scale?.sane(), mirror) }
+    }
+
+    /**
+     * Scale by reference: makes the measured length [measured] (mm) come out as [wanted], on the one selected copy, about its
+     * centre; [axis] null = the whole copy, else only along that world axis, on which [along] of the length lies. One undo step.
+     * The measure points are cleared (they sat on the old size). Returns false (with a message) when refused.
+     */
+    fun scaleToMeasure(measured: Float, wanted: Float, axis: Int?, along: Float = measured): Boolean {
+        val sel = store.value.workspace.selectedItems.singleOrNull() ?: return false
+        val inst = store.value.workspace.scene.objects.getOrNull(sel.obj)?.instances?.getOrNull(sel.instance) ?: return false
+        val refused = { store.toast(store.str(R.string.measure_make_refused)); false }
+        val factor = (if (axis == null) referenceFactor(measured, wanted) else referenceAxisFactor(measured, along, wanted)) ?: return refused()
+        val centre = inst.min + inst.size * 0.5f
+        val (off, scale) = referenceScale(inst.offset, inst.scale, centre, factor, axis, app.orcaandroid.ui.components.ownAxes(inst.rotation)) ?: return refused()
+        setTransform(offset = off, scale = scale)
+        // The points sat on the old size: left in place, a second tap would scale again from the stale length.
+        store.update { it.copy(workspace = it.workspace.copy(measure = emptyList())) }
+        store.toast(store.str(R.string.measure_make_done, "%.3f".format(java.util.Locale.ROOT, factor).trimEnd('0').trimEnd('.')))
+        return true
     }
 
     /** Moves, turns or scales the selected part (or modifier) inside its object. */

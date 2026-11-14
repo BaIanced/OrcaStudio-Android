@@ -33,7 +33,7 @@ class PrintDoctorTest {
     }
 
     @Test fun everySymptomHasFixes() {
-        DOCTOR_SYMPTOMS.forEach { assert(it.fixes.isNotEmpty()) }
+        DOCTOR_SYMPTOMS.forEach { assert(it.fixes.isNotEmpty() || it.slider != null) }
         assertEquals(DOCTOR_SYMPTOMS.size, DOCTOR_SYMPTOMS.map { it.id }.toSet().size)
     }
 }

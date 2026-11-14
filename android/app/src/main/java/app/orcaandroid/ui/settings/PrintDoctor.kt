@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,7 +40,10 @@ sealed interface DoctorOp {
 data class DoctorFix(val type: PresetType, val key: String, val op: DoctorOp)
 
 /** [calibration] = id of the built-in calibration test that measures the right value for this symptom, if there is one. */
-data class DoctorSymptom(val id: String, @StringRes val title: Int, @StringRes val text: Int, val fixes: List<DoctorFix>, val calibration: String? = null)
+/** A symptom with one number to dial in: [min]..[max] in [step]s, applied as that option's value. */
+data class DoctorSlider(val type: PresetType, val key: String, val min: Float, val max: Float, val step: Float)
+
+data class DoctorSymptom(val id: String, @StringRes val title: Int, @StringRes val text: Int, val fixes: List<DoctorFix>, val calibration: String? = null, val slider: DoctorSlider? = null)
 
 /** What a fix would do to the current value: null when there is nothing to change (value already there, or a number could not be read). */
 fun DoctorFix.newValue(current: String?): String? {
@@ -86,6 +90,7 @@ val DOCTOR_SYMPTOMS = listOf(
         DoctorFix(TP, "elefant_foot_compensation", DoctorOp.Add(0.1f, 0f, 1f)),
         DoctorFix(TF, "hot_plate_temp_initial_layer", DoctorOp.Add(-5f, 0f, 120f)),
     )),
+    DoctorSymptom("small_holes", R.string.doc_small_holes, R.string.doc_small_holes_text, emptyList(), slider = DoctorSlider(TP, "xy_hole_compensation", 0f, 0.4f, 0.05f)),
     DoctorSymptom("layer_shift", R.string.doc_layer_shift, R.string.doc_layer_shift_text, listOf(
         DoctorFix(TP, "default_acceleration", DoctorOp.Scale(0.6f, 500f, 20000f)),
         DoctorFix(TP, "outer_wall_acceleration", DoctorOp.Scale(0.6f, 500f, 20000f)),
@@ -119,8 +124,8 @@ val DOCTOR_SYMPTOMS = listOf(
 
 /** Print doctor: pick a symptom, see the setting changes on the current presets, apply the ticked ones as unsaved edits. */
 @Composable
-fun PrintDoctorDialog(state: UiState, vm: AppViewModel, onCalibration: (String) -> Unit, onDismiss: () -> Unit) {
-    var symptom by remember { mutableStateOf<DoctorSymptom?>(null) }
+fun PrintDoctorDialog(state: UiState, vm: AppViewModel, onCalibration: (String) -> Unit, startId: String? = null, onDismiss: () -> Unit) {
+    var symptom by remember { mutableStateOf(DOCTOR_SYMPTOMS.firstOrNull { it.id == startId }) }
     var defs by remember { mutableStateOf<Map<PresetType, Map<String, OptionDef>>>(emptyMap()) }
     var loaded by remember { mutableStateOf(false) }
     val skipped = remember { mutableStateListOf<DoctorFix>() }
@@ -142,6 +147,30 @@ fun PrintDoctorDialog(state: UiState, vm: AppViewModel, onCalibration: (String) 
                 }
             },
             confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.close)) } },
+        )
+        return
+    }
+    val sl = s.slider
+    if (sl != null) {
+        val cur = if (loaded) state.device.value(sl.type, sl.key)?.trim()?.toFloatOrNull() else null
+        var pos by remember(loaded) { mutableStateOf((cur ?: 0f).coerceIn(sl.min, sl.max)) }
+        val snapped = (Math.round(pos / sl.step) * sl.step).coerceIn(sl.min, sl.max)
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(stringResource(s.title)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(s.text), style = MaterialTheme.typography.bodySmall)
+                    Text(stringResource(R.string.doc_slider_value, fmt(snapped)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                    Slider(snapped, { pos = it }, Modifier.fillMaxWidth(), valueRange = sl.min..sl.max, steps = Math.round((sl.max - sl.min) / sl.step) - 1)
+                }
+            },
+            confirmButton = {
+                TextButton({ vm.presets.setOption(sl.type, sl.key, fmt(snapped)); onDismiss() }, enabled = loaded && fmt(snapped) != (cur?.let { fmt(it) })) {
+                    Text(stringResource(R.string.apply))
+                }
+            },
+            dismissButton = { TextButton({ if (startId != null) onDismiss() else symptom = null }) { Text(stringResource(R.string.back)) } },
         )
         return
     }
