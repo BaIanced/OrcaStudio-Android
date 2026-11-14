@@ -10,6 +10,8 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -89,6 +91,7 @@ import app.orcaandroid.R
 import app.orcaandroid.ui.components.ScrubCell
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.FitPresets
 import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.Shape
@@ -361,6 +364,7 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
                 Text(stringResource(R.string.shape_hole))
             }
         }
+        if (shape.hole && shape.kind == Shape.Kind.CYLINDER) HoleFit(shape, vm)
         // Each top-level solid is its own part, so it can print in its own filament (a group as one).
         if (!shape.hole && filaments.size > 1 && d.shapes.any { it.id == shape.id }) {
             PickerField(stringResource(R.string.filament), shape.filament.takeIf { it in 1..filaments.size }?.toString() ?: "0",
@@ -408,6 +412,61 @@ private fun Properties(shape: Shape, d: ShapeDesign, vm: AppViewModel, filaments
         if (shape.kind in Shape.SHELLED && !revolve) ShellEditor(shape, d, vm)
         RepeatEditor(shape, vm)
     }
+}
+
+/** "Hole for...": chips that set a Hole cylinder's diameter (and depth) for a screw, nut, magnet or heat-set insert. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HoleFit(shape: Shape, vm: AppViewModel) {
+    var kind by remember(shape.id) { mutableStateOf<FitPresets.Kind?>(null) }
+    var size by remember(shape.id) { mutableStateOf("M3") }
+    var fit by remember(shape.id) { mutableStateOf(FitPresets.Fit.NORMAL) }
+    fun go(k: FitPresets.Kind, sz: String, f: FitPresets.Fit) {
+        kind = k; size = sz; fit = f
+        vm.shapes.applyFit(shape.id, k, sz, f)
+    }
+    val gap = Arrangement.spacedBy(6.dp)
+    Text(stringResource(R.string.shape_fit_title), style = MaterialTheme.typography.labelLarge)
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = gap) {
+        FitPresets.Kind.entries.forEach { k ->
+            val name = when (k) {
+                FitPresets.Kind.THROUGH -> R.string.shape_fit_through
+                FitPresets.Kind.TAPPING -> R.string.shape_fit_tapping
+                FitPresets.Kind.NUT -> R.string.shape_fit_nut
+                FitPresets.Kind.COUNTERSUNK -> R.string.shape_fit_countersunk
+                FitPresets.Kind.HEAT_SET -> R.string.shape_fit_heat_set
+                FitPresets.Kind.MAGNET -> R.string.shape_fit_magnet
+            }
+            androidx.compose.material3.FilterChip(kind == k, {
+                go(k, size.takeIf { it in FitPresets.sizes(k) } ?: FitPresets.sizes(k).let { if ("M3" in it) "M3" else it.first() }, fit)
+            }, { Text(stringResource(name)) })
+        }
+    }
+    val k = kind ?: return
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = gap) {
+        FitPresets.sizes(k).forEach { sz ->
+            androidx.compose.material3.FilterChip(size == sz, { go(k, sz, fit) }, { Text(sz) })
+        }
+    }
+    if (k.usesFit) {
+        Text(stringResource(R.string.shape_fit_fit), style = MaterialTheme.typography.labelLarge)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = gap) {
+            FitPresets.Fit.entries.forEach { f ->
+                val name = when (f) {
+                    FitPresets.Fit.TIGHT -> R.string.shape_fit_tight
+                    FitPresets.Fit.NORMAL -> R.string.shape_fit_normal
+                    FitPresets.Fit.LOOSE -> R.string.shape_fit_loose
+                }
+                androidx.compose.material3.FilterChip(fit == f, { go(k, size, f) }, { Text(stringResource(name)) })
+            }
+        }
+    }
+    val hint = when {
+        k == FitPresets.Kind.HEAT_SET -> R.string.shape_fit_heat_hint
+        k == FitPresets.Kind.COUNTERSUNK && !vm.shapes.canCountersink(shape) -> R.string.shape_fit_cone_hint
+        else -> null
+    }
+    if (hint != null) Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** Push / pull on a MESH shape: the mode switch (a tap in the main view picks a flat face) and the face edits made so far. */

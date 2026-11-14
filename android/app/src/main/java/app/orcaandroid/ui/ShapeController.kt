@@ -11,6 +11,7 @@ import app.orcaandroid.scad.Bounds
 import app.orcaandroid.scad.BuildTransform
 import app.orcaandroid.scad.D3
 import app.orcaandroid.scad.Dim
+import app.orcaandroid.scad.FitPresets
 import app.orcaandroid.scad.Part
 import app.orcaandroid.scad.Repeat
 import app.orcaandroid.scad.SavedParts
@@ -503,6 +504,53 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun setHole(hole: Boolean) {
         val d = design ?: return
         commit(selected.fold(d) { acc, id -> acc.update(id) { it.copy(hole = hole) } })
+    }
+
+    /** The countersink cone [applyFit] adds for hole [s]: a hole cone beside it, named after it. */
+    private fun countersinkOf(d: ShapeDesign, s: Shape): Shape? {
+        val name = store.str(R.string.shape_fit_countersink, s.name)
+        val siblings = d.pathTo(s.id).dropLast(1).lastOrNull()?.children ?: d.shapes
+        return siblings.firstOrNull { it.kind == Shape.Kind.CONE && it.hole && it.name == name }
+    }
+
+    /** True when the "Hole for..." chips can add a countersink cone to [s] (it must stand upright, not repeated). */
+    fun canCountersink(s: Shape) = s.rot == D3() && s.repeat == null && s.mirror == D3()
+
+    /**
+     * "Hole for...": sets the Hole cylinder [id] to the diameter (and depth) of [size] of [kind] with [fit], as one undo step.
+     * It stays an ordinary cylinder (a nut pocket has 6 sides). Countersunk also adds, or updates, a cone hole at its top;
+     * any other kind removes that cone again.
+     */
+    fun applyFit(id: Int, kind: FitPresets.Kind, size: String, fit: FitPresets.Fit) {
+        val d = design ?: return
+        val s = d.find(id)?.takeIf { it.kind == Shape.Kind.CYLINDER } ?: return
+        val spec = FitPresets.spec(kind, size, fit) ?: return
+        var next = withField(d, id, "size.x", spec.diameter) ?: return
+        next = withField(next, id, "size.y", spec.diameter) ?: return
+        spec.depth?.let { next = withField(next, id, "size.z", it) ?: return }
+        next = next.update(id) { it.copy(extra = it.extra + (Shape.SIDES to spec.sides.toDouble())) }
+        val old = countersinkOf(d, s)
+        val parent = d.pathTo(id).dropLast(1).lastOrNull()
+        val cone = spec.cone?.takeIf { canCountersink(s) }
+        if (old != null && cone == null) {
+            next = if (parent == null) next.copy(shapes = next.shapes.filter { it.id != old.id })
+            else next.update(parent.id) { g -> g.copy(children = g.children.filter { it.id != old.id }) }
+        }
+        if (cone != null) {
+            val me = next.find(id) ?: return
+            val pos = next.pos(me)
+            val shape = (old ?: Shape(next.nextId, Shape.Kind.CONE, store.str(R.string.shape_fit_countersink, s.name), D3(), hole = true))
+                .copy(size = D3(cone.head, cone.head, cone.height),
+                    // Turned over (about its own centre), so the wide end is up and flush with the top of the hole.
+                    pos = D3(pos.x, pos.y, pos.z + next.size(me).z - cone.height), rot = D3(180.0, 0.0, 0.0),
+                    extra = mapOf(Shape.TOP to cone.topRatio))
+            next = when {
+                old != null -> next.update(old.id) { shape }
+                parent == null -> next.copy(shapes = next.shapes + shape, nextId = next.nextId + 1)
+                else -> next.update(parent.id) { g -> g.copy(children = g.children + shape) }.copy(nextId = next.nextId + 1)
+            }
+        }
+        commit(next, listOf(id))
     }
 
     fun mirror(axis: Int) {
