@@ -8,6 +8,8 @@
 #include "SculptSession.hpp"
 #include "Thumbnails.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -58,15 +60,152 @@ indexed_triangle_set sculpt_to_its(const meshdeform::Mesh &m)
     return its;
 }
 
-// The part's paint before its mesh is replaced by one with other triangles (a refine or a split), for restore_painting().
-// [geometry] has the part's triangles in the same order (paint is per triangle) but may be newer: an unflushed session's
-// moved vertices. It is the remap's source then, so paint follows the sculpted surface, not the pre-stroke one.
-static std::optional<TriangleSelector::SavedPainting> sculpt_save_painting(const ModelVolume &vol, const meshdeform::Mesh &geometry)
+// Paint across a refine or a split. Both only add edge midpoints, so every new triangle lies inside one old triangle, and
+// its centroid tells which painted piece (an old triangle, or a sub-triangle of a partly painted one) it takes the state
+// of. Upstream's remap_painting() (a brush-like patch fill per overlapping face) took 31 s on a refined 191k-face insole;
+// this is one nearest-piece lookup per new triangle. New triangles are painted whole (no sub-triangles): the boundary of
+// a partly painted old triangle snaps to the new triangles, which are at most a fifth of the brush radius long.
+struct SculptPaint {
+    indexed_triangle_set its;                                     // the triangles the paint indexes
+    std::array<TriangleSelector::TriangleSplittingData, 4> data;  // supports, seam, colour, fuzzy skin
+};
+
+static std::array<FacetsAnnotation *, 4> paint_sets(ModelVolume &vol)
 {
-    auto saved = vol.save_painting();
-    if (saved && geometry.faces.size() == saved->mesh.its.indices.size())
-        saved->mesh = TriangleMesh(sculpt_to_its(geometry));
-    return saved;
+    return {&vol.supported_facets, &vol.seam_facets, &vol.mmu_segmentation_facets, &vol.fuzzy_skin_facets};
+}
+
+// The part's paint before its mesh is replaced by one with other triangles. [geometry] has the part's triangles in the
+// same order (paint is per triangle) but may be newer: an unflushed session's moved vertices. It is the source then, so
+// paint follows the sculpted surface, not the pre-stroke one.
+static std::optional<SculptPaint> sculpt_save_paint(ModelVolume &vol, const meshdeform::Mesh &geometry)
+{
+    if (!vol.is_model_part())
+        return std::nullopt;
+    const auto sets = paint_sets(vol);
+    if (std::all_of(sets.begin(), sets.end(), [](const FacetsAnnotation *f) { return f->empty(); }))
+        return std::nullopt;
+    SculptPaint p;
+    p.its = geometry.faces.size() == vol.mesh().its.indices.size() ? sculpt_to_its(geometry) : vol.mesh().its;
+    for (size_t k = 0; k < sets.size(); ++k)
+        p.data[k] = sets[k]->get_data();
+    return p;
+}
+
+// The bits of one whole (unsplit) triangle in [state], as TriangleSelector::serialize() writes them.
+static std::vector<bool> leaf_bits(EnforcerBlockerType state)
+{
+    indexed_triangle_set one;
+    one.vertices = {stl_vertex(0.f, 0.f, 0.f), stl_vertex(1.f, 0.f, 0.f), stl_vertex(0.f, 1.f, 0.f)};
+    one.indices = {stl_triangle_vertex_indices(0, 1, 2)};
+    const TriangleMesh mesh(std::move(one));
+    TriangleSelector sel(mesh);
+    sel.set_facet(0, state);
+    return sel.serialize().bitstream;
+}
+
+static TriangleSelector::TriangleSplittingData sculpt_remap(const indexed_triangle_set &src, const TriangleSelector::TriangleSplittingData &data,
+                                                            const indexed_triangle_set &dst)
+{
+    TriangleSelector::TriangleSplittingData out;
+    if (data.triangles_to_split.empty())
+        return out;
+    std::vector<std::pair<EnforcerBlockerType, std::vector<bool>>> codes;
+    for (EnforcerBlockerType s : TriangleSelector::extract_used_facet_states(data))
+        if (s != EnforcerBlockerType::NONE)
+            codes.emplace_back(s, leaf_bits(s));
+
+    // The painted pieces with their state. Whole painted triangles are read straight from the bitstream; only triangles
+    // stored split need a TriangleSelector over the old mesh.
+    indexed_triangle_set pieces;
+    std::vector<EnforcerBlockerType> piece_state;
+    auto add = [&](const Vec3f &a, const Vec3f &b, const Vec3f &c, EnforcerBlockerType s) {
+        const int n = int(pieces.vertices.size());
+        pieces.vertices.insert(pieces.vertices.end(), {a, b, c});
+        pieces.indices.emplace_back(n, n + 1, n + 2);
+        piece_state.push_back(s);
+    };
+    std::vector<char> split(src.indices.size(), 0);
+    bool any_split = false;
+    for (size_t j = 0; j < data.triangles_to_split.size(); ++j) {
+        const int t = data.triangles_to_split[j].triangle_idx;
+        const size_t b = size_t(data.triangles_to_split[j].bitstream_start_idx);
+        const size_t e = j + 1 < data.triangles_to_split.size() ? size_t(data.triangles_to_split[j + 1].bitstream_start_idx) : data.bitstream.size();
+        if (t < 0 || size_t(t) >= src.indices.size() || e < b || e > data.bitstream.size())
+            continue;
+        const auto code = std::find_if(codes.begin(), codes.end(), [&](const auto &c) {
+            return c.second.size() == e - b && std::equal(c.second.begin(), c.second.end(), data.bitstream.begin() + std::ptrdiff_t(b));
+        });
+        if (code != codes.end()) {
+            const auto &f = src.indices[size_t(t)];
+            add(src.vertices[f[0]], src.vertices[f[1]], src.vertices[f[2]], code->first);
+        } else {
+            split[size_t(t)] = 1;
+            any_split = true;
+        }
+    }
+    if (any_split) {
+        const TriangleMesh mesh(src);
+        TriangleSelector sel(mesh);
+        sel.deserialize(data, false);
+        for (const auto &c : codes) {
+            std::vector<int> from;
+            const indexed_triangle_set f = sel.get_facets_strict(c.first, &from);
+            for (size_t k = 0; k < f.indices.size() && k < from.size(); ++k)
+                if (from[k] >= 0 && size_t(from[k]) < split.size() && split[size_t(from[k])])
+                    add(f.vertices[f.indices[k][0]], f.vertices[f.indices[k][1]], f.vertices[f.indices[k][2]], c.first);
+        }
+    }
+    if (pieces.indices.empty())
+        return out;
+
+    const auto tree = AABBTreeIndirect::build_aabb_tree_over_indexed_triangle_set(pieces.vertices, pieces.indices);
+    Eigen::AlignedBox3d box;
+    for (const stl_vertex &v : pieces.vertices)
+        box.extend(v.cast<double>());
+    std::unordered_map<int, const std::vector<bool> *> bits;
+    for (const auto &c : codes)
+        bits[int(c.first)] = &c.second;
+    for (size_t i = 0; i < dst.indices.size(); ++i) {
+        const auto &f = dst.indices[i];
+        const Vec3d a = dst.vertices[f[0]].cast<double>(), b = dst.vertices[f[1]].cast<double>(), c = dst.vertices[f[2]].cast<double>();
+        const Vec3d g = (a + b + c) / 3.;
+        // The centroid's distance to the triangle's own nearest edge (2 * area / (3 * longest edge)). A centroid inside a
+        // painted piece is ~0 from it; one in an unpainted old triangle is at least this far from every painted piece (its
+        // triangle lies inside that old triangle), also across a crease. Half of it separates the two.
+        const double longest = std::max({(b - a).norm(), (c - b).norm(), (a - c).norm()});
+        if (!(longest > 0.))
+            continue;
+        const double lim = 0.5 * (b - a).cross(c - a).norm() / (3. * longest);
+        if (box.squaredExteriorDistance(g) > lim * lim)
+            continue;
+        size_t hit = 0;
+        Vec3d at;
+        const double d2 = AABBTreeIndirect::squared_distance_to_indexed_triangle_set(pieces.vertices, pieces.indices, tree, g, hit, at);
+        // On a shared edge of two pieces the tree's first nearest one wins (fixed for the same data).
+        if (d2 < 0. || d2 > lim * lim)
+            continue;
+        const EnforcerBlockerType s = piece_state[hit];
+        const std::vector<bool> &code = *bits[int(s)];
+        out.triangles_to_split.emplace_back(int(i), int(out.bitstream.size()));
+        out.bitstream.insert(out.bitstream.end(), code.begin(), code.end());
+        out.used_states[size_t(s)] = true;
+    }
+    return out;
+}
+
+// The saved paint on the part's new mesh (no paint: the part's paint is cleared, as before).
+static void sculpt_restore_paint(ModelVolume &vol, const std::optional<SculptPaint> &p)
+{
+    vol.reset_extra_facets();
+    if (!p)
+        return;
+    const auto sets = paint_sets(vol);
+    for (size_t k = 0; k < sets.size(); ++k) {
+        auto data = sculpt_remap(p->its, p->data[k], vol.mesh().its);
+        if (!data.triangles_to_split.empty())
+            sets[k]->set_data(std::move(data));
+    }
 }
 
 // Moller-Trumbore; the ray parameter or -1.
@@ -254,7 +393,7 @@ bool OrcaEngine::sculpt_finish_locked()
         return false;
     SculptSession &s = *m_sculpt;
     bool split = false;
-    std::optional<TriangleSelector::SavedPainting> saved;
+    std::optional<SculptPaint> saved;
     if (!s.touched_list.empty() && s.refined_to < std::numeric_limits<double>::max()) {
         const double limit2 = 4. * s.refined_to * s.refined_to;
         auto len2 = [&s](int a, int b) {
@@ -274,7 +413,7 @@ bool OrcaEngine::sculpt_finish_locked()
         if (stretched) {
             // The part's paint indexes the session's triangles; taken before the split renumbers them.
             if (s.object < int(m_model->objects.size()) && s.volume < int(m_model->objects[s.object]->volumes.size()))
-                saved = sculpt_save_painting(*m_model->objects[s.object]->volumes[s.volume], s.mesh);
+                saved = sculpt_save_paint(*m_model->objects[s.object]->volumes[s.volume], s.mesh);
             const auto t0 = std::chrono::steady_clock::now();
             const size_t before = s.mesh.faces.size();
             // New midpoints (past the mask) lie on split edges, so they count as sculpted.
@@ -294,7 +433,7 @@ bool OrcaEngine::sculpt_finish_locked()
     if (split) {
         ModelVolume *vol = m_model->objects[oi]->volumes[vi];
         const auto t0 = std::chrono::steady_clock::now();
-        vol->restore_painting(saved);
+        sculpt_restore_paint(*vol, saved);
         if (saved)
             BOOST_LOG_TRIVIAL(warning) << "sculpt: stroke end paint restore "
                                        << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count() << " ms";
@@ -410,7 +549,6 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         if (fresh)
             m_sculpt->refined_to = edge;
         // An unflushed session's mesh is newer than the part's.
-        const auto t0 = std::chrono::steady_clock::now();
         meshdeform::Mesh m = fresh ? std::move(m_sculpt->mesh) : sculpt_to_mesh(vol->mesh().its);
         const size_t budget = std::max<size_t>(400000, m.faces.size());
         double longest = 0.;
@@ -422,13 +560,14 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
         if (std::sqrt(longest) > edge && m.faces.size() < budget) {
             const size_t before = m.faces.size();
             // The part's paint indexes [m]'s triangles (the session moves vertices only); taken before the refine renumbers them.
-            const auto saved = sculpt_save_painting(*vol, m);
+            const auto t_s0 = std::chrono::steady_clock::now();
+            const auto saved = sculpt_save_paint(*vol, m);
             const auto t_save = std::chrono::steady_clock::now();
             meshdeform::refine_to_length(m, edge, budget);
             const auto t_refine = std::chrono::steady_clock::now();
             vol->set_mesh(sculpt_to_its(m));
             const auto t_set = std::chrono::steady_clock::now();
-            vol->restore_painting(saved);
+            sculpt_restore_paint(*vol, saved);
             const auto t_paint = std::chrono::steady_clock::now();
             // Edge midpoints only: the convex hull stays the same (qhull on the refined mesh took hundreds of ms).
             obj.invalidate_bounding_box();
@@ -439,7 +578,7 @@ json OrcaEngine::sculpt(const std::array<int, 3> &target, const std::vector<std:
             auto ms = [](auto a, auto b) { return std::chrono::duration_cast<std::chrono::milliseconds>(b - a).count(); };
             BOOST_LOG_TRIVIAL(warning) << "sculpt: refine " << before << " -> " << m.faces.size() << " faces " << ms(t_save, t_refine)
                                        << " ms, set mesh " << ms(t_refine, t_set) << " ms, paint " << (saved ? "save " : "none ")
-                                       << ms(t0, t_save) << " ms restore " << ms(t_set, t_paint) << " ms, commit "
+                                       << ms(t_s0, t_save) << " ms restore " << ms(t_set, t_paint) << " ms, commit "
                                        << ms(t_hull, std::chrono::steady_clock::now()) << " ms";
         } else if (fresh)
             m_sculpt->mesh = std::move(m);
