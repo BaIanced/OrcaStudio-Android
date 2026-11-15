@@ -1866,6 +1866,8 @@ json OrcaEngine::redo()
 json OrcaEngine::room_begin()
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_room.open)
+        m_room_redo = m_redo; // what a discarding roomEnd gives back (snapshots are shared, the copy is cheap)
     roomundo::begin(m_room, m_undo);
     return scene_json();
 }
@@ -1877,9 +1879,20 @@ json OrcaEngine::room_floor()
     return scene_json();
 }
 
-json OrcaEngine::room_end()
+json OrcaEngine::room_end(bool discard)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
+    if (discard && m_room.open) {
+        // The visit leaves nothing behind: the model is the entry snapshot again, no step stays, Redo is as at entry.
+        if (m_undo.size() > m_room.floor) {
+            const Snapshot entry = m_undo[m_room.floor];
+            m_model  = std::make_unique<Model>(*entry.model);
+            m_plates = entry.plates;
+        }
+        roomundo::discard(m_room, m_undo, m_redo, m_room_redo, m_calib_undo_depth);
+        m_room_redo.clear();
+        return commit();
+    }
     roomundo::end(m_room, m_undo, m_redo, m_calib_undo_depth);
     return scene_json();
 }

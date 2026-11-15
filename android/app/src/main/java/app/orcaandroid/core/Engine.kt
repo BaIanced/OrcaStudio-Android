@@ -227,11 +227,12 @@ class Engine(private val cacheDir: File) {
     /**
      * The focus room's plate history (docs/design/FOCUS-ROOM.md section 7). [roomBegin] opens it at the current depth (nothing
      * if open); while open Undo stops at the tool floor, which [roomFloor] moves to the current depth (Redo dropped);
-     * [roomEnd] leaves the visit as one plate step.
+     * [roomEnd] leaves the visit as one plate step; with [discard] the visit leaves nothing: the model is as at entry, no step
+     * stays and Redo is as before entry.
      */
     suspend fun roomBegin() = parseScene(call("roomBegin"))
     suspend fun roomFloor() = parseScene(call("roomFloor"))
-    suspend fun roomEnd() = parseScene(call("roomEnd"))
+    suspend fun roomEnd(discard: Boolean = false) = parseScene(call("roomEnd", args("discard" to discard)))
     suspend fun addPrimitive(shape: String, size: Vec3, plate: Int, round: Float = 0f) = parseScene(call("addPrimitive", args("shape" to shape, "size" to size, "plate" to plate, "round" to round)))
     /** Shape builder Blend joins: [spec] = {radius, parts} (ShapeDesign.blendCode) fused in OCCT into the STL [out]; its triangle count. */
     suspend fun blendSolids(spec: JSONObject, out: File): Int =

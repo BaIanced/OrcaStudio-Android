@@ -340,7 +340,7 @@ data class ChromeState(
     val designMode: Boolean = false,
     val doubleBackToQuit: Boolean = false,
     /** Experimental setting "One place to edit shapes" (the focus room, docs/design/FOCUS-ROOM.md). */
-    val focusRoom: Boolean = false,
+    val focusRoom: Boolean = true,
     val coachDismissed: Boolean = true,
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */

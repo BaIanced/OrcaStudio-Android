@@ -312,7 +312,36 @@ class ShapeController(private val store: Store, private val scad: ScadController
     var sketchRequest by androidx.compose.runtime.mutableStateOf<Int?>(null)
 
     /** The palette's Sketch chip: adds a sketch shape and opens its drawing (the focus room's Sketch tool calls this too). */
-    fun addSketch() { sketchRequest = add(Shape.Kind.SKETCH) }
+    fun addSketch() {
+        val before = design to selected
+        val id = add(Shape.Kind.SKETCH)
+        justAdded = id?.let { JustAdded(it, before.first, before.second, design) }
+        sketchRequest = id
+    }
+
+    /** A sketch shape [addSketch] added whose drawing was not confirmed yet: the design and selection before it, and after. */
+    private class JustAdded(val id: Int, val before: ShapeDesign?, val selection: List<Int>, val after: ShapeDesign?)
+    private var justAdded: JustAdded? = null
+
+    /**
+     * The drawing of sketch shape [id] was left with Back / Cancel. A shape [addSketch] just added and nobody confirmed
+     * goes again, and its builder undo step with it (when nothing else changed meanwhile; otherwise it is deleted as one more
+     * step). A sketch that was already there, or one with a confirmed drawing ([setSketch]), stays.
+     */
+    fun cancelNewSketch(id: Int) {
+        val j = justAdded?.takeIf { it.id == id } ?: return
+        justAdded = null
+        val cur = design ?: return
+        val before = j.before
+        if (before != null && cur === j.after && undoOwner === cur && undo.lastOrNull()?.first === before) {
+            undo.removeLast()
+            undoOwner = before
+            scad.setShapes(before, j.selection)
+        } else if (cur.find(id) != null) {
+            fun prune(list: List<Shape>): List<Shape> = list.filter { it.id != id }.map { if (it.isGroup) it.copy(children = prune(it.children)) else it }
+            commit(cur.copy(shapes = prune(cur.shapes)), selected.filter { it != id })
+        }
+    }
 
     /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
     fun addPart(part: Part) {
@@ -454,6 +483,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
      */
     fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
         val d = design ?: return
+        if (justAdded?.id == id) justAdded = null
         commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
     }
 

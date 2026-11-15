@@ -150,7 +150,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             }
             store.update { st ->
                 st.copy(workspace = st.workspace.copy(
-                    focus = FocusRoom(obj, o.name, defaultRoomTool(kind)),
+                    focus = FocusRoom(obj, o.name, defaultRoomTool(kind), wrapOnly = kind == RoomKind.MESH),
                     selection = st.workspace.selection?.takeIf { it.obj == obj }?.copy(volume = -1) ?: Selection(obj),
                     multiSelection = emptyList(), contextMenu = null))
             }
@@ -192,8 +192,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         scene.setTool(Tool.None).join()
         scad.awaitIdle()
+        // A visit that only wrapped a mesh (still a plain wrap) leaves nothing: the mesh as at entry, no plate step.
+        val focus = state.value.workspace.focus
+        val plain = ScadDesign.of(state.value.workspace.scene.objects.getOrNull(focus?.obj ?: -1))?.shapes?.isPlainWrap() == true
+        val discard = focus?.leavesNothing(plain) == true
         try {
-            store.applyScene(store.engine.roomEnd(), dirty = false)
+            store.applyScene(store.engine.roomEnd(discard), dirty = false)
         } finally {
             store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
         }
@@ -221,6 +225,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         // A visit that has no object on the plate yet is a design in the builder.
         val design = f.obj < 0 || roomKind(obj) == RoomKind.DESIGN
         var wrapped = false
+        // Steps already made in this visit (Undo is live above the floor): the visit is then more than a wrap.
+        val dirtyBeforeWrap = store.value.workspace.scene.canUndo
         when (tool) {
             RoomTool.SHAPES, RoomTool.SKETCH, RoomTool.PUSH_PULL ->
                 if (tool == RoomTool.PUSH_PULL && !design) scene.setTool(Tool.MeshEdit(kind = "face")).join()
@@ -252,7 +258,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { st ->
             val cur = st.workspace.focus ?: return@update st
             st.copy(workspace = st.workspace.copy(focus = cur.copy(tool = tool,
-                wrapNote = wrapped && !cur.wrapNoted, wrapNoted = cur.wrapNoted || wrapped)))
+                wrapNote = wrapped && !cur.wrapNoted, wrapNoted = cur.wrapNoted || wrapped,
+                wrapped = cur.wrapped || wrapped, wrapOnly = cur.wrapOnly && !(wrapped && dirtyBeforeWrap))))
         }
     }
 
@@ -266,7 +273,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             scad.close()?.join()
         }
         store.applyScene(store.engine.setObjectModule(obj, "", undo = true))
-        if (state.value.workspace.focus != null) store.applyScene(store.engine.roomFloor(), dirty = false)
+        if (state.value.workspace.focus != null) {
+            // A freeze is a change of the visit: it no longer ends as "nothing happened".
+            store.update { it.copy(workspace = it.workspace.copy(focus = it.workspace.focus?.copy(wrapOnly = false))) }
+            store.applyScene(store.engine.roomFloor(), dirty = false)
+        }
     }
 
     /** "Keep as a fixed shape": freezes the object and opens the tool that was asked for. */

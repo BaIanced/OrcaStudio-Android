@@ -51,6 +51,24 @@ template<class T> void end(Room &r, std::deque<T> &undo, std::deque<T> &redo, st
     calib_depth = std::min(calib_depth, undo.size());
 }
 
+// roomEnd with discard: the visit leaves nothing behind. Returns true when the model must go back to undo[floor] (the
+// snapshot of the model at entry; the caller restores it BEFORE calling this, from undo[floor]). Every step made in
+// the room is erased and Redo is what it was at entry (`entry_redo`, saved by the caller at begin).
+template<class T> bool discard(Room &r, std::deque<T> &undo, std::deque<T> &redo, const std::deque<T> &entry_redo,
+                               std::size_t &calib_depth)
+{
+    if (!r.open)
+        return false;
+    const bool restore = undo.size() > r.floor;
+    if (restore)
+        undo.erase(undo.begin() + std::ptrdiff_t(r.floor), undo.end());
+    redo        = entry_redo;
+    r.open      = false;
+    r.changed   = false;
+    calib_depth = std::min(calib_depth, undo.size());
+    return restore;
+}
+
 // Scene JSON's can_undo.
 template<class T> bool can_undo(const Room &r, const std::deque<T> &undo)
 {

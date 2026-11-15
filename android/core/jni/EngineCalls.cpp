@@ -172,7 +172,7 @@ const std::unordered_map<std::string, Handler> &handlers()
         {"setUndoLimit", [](OrcaEngine &e, const json &a) { return e.set_undo_limit(a.at("limit").get<size_t>()); }},
         {"roomBegin", [](OrcaEngine &e, const json &) { return e.room_begin(); }},
         {"roomFloor", [](OrcaEngine &e, const json &) { return e.room_floor(); }},
-        {"roomEnd", [](OrcaEngine &e, const json &) { return e.room_end(); }},
+        {"roomEnd", [](OrcaEngine &e, const json &a) { return e.room_end(a.value("discard", false)); }},
         {"addPrimitive", [](OrcaEngine &e, const json &a) { return e.add_primitive(a.at("shape"), vec3(a.at("size")), a.value("plate", 0), a.value("round", 0.)); }},
         {"blendSolids", [](OrcaEngine &e, const json &a) { return e.blend_solids(a.at("parts"), a.at("radius"), a.at("out")); }},
         {"addText", [](OrcaEngine &e, const json &a) {

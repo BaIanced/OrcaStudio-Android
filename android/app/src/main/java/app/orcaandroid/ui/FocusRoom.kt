@@ -19,7 +19,20 @@ data class FocusRoom(
     val wrapNote: Boolean = false,
     /** The note was shown in this visit: it is not shown again. */
     val wrapNoted: Boolean = false,
+    /**
+     * The visit can still end as "nothing happened": it was entered on a mesh, nothing was changed before its wrap and no
+     * freeze happened since. See [leavesNothing].
+     */
+    val wrapOnly: Boolean = false,
+    /** A mesh was wrapped into a design in this visit. */
+    val wrapped: Boolean = false,
 )
+
+/**
+ * Done on a visit that only wrapped a mesh and left the design a plain wrap ([plainWrap], `ShapeDesign.isPlainWrap()`):
+ * the object goes back to the plain mesh it was at entry and the plate history gets no step (the engine's `roomEnd` with discard).
+ */
+fun FocusRoom.leavesNothing(plainWrap: Boolean): Boolean = wrapOnly && wrapped && plainWrap
 
 /**
  * "Keep as a fixed shape?": a mesh tool was asked for on design object [obj] (named [name]); [tool] is the plate tool to open

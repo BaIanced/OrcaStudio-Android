@@ -203,7 +203,8 @@ public:
     // collapses the steps made in the room into the one step that restores the model at entry. All return the scene.
     json room_begin();
     json room_floor();
-    json room_end();
+    // room_end(discard): the visit leaves nothing behind (model as at entry, no step made in the room, Redo as at entry).
+    json room_end(bool discard = false);
 
     // --- Tools needing the current selection (see set_selection) ------------------------------
 
@@ -479,6 +480,7 @@ private:
     size_t                                m_undo_limit = 200;
     // The focus room: m_room.open / floor / tool_floor are the spec's m_room_open, m_room_floor, m_room_tool_floor.
     roomundo::Room                        m_room;
+    std::deque<Snapshot>                  m_room_redo; // Redo at room_begin, restored by room_end(discard)
     std::string                           m_printer;
     std::string                           m_preferred_bed_type; // set_default_bed_type
     bool                                  m_allow_mixed_temp = false; // slice filaments with far apart nozzle temperatures together

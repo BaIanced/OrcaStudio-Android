@@ -267,7 +267,10 @@ class ScadController(private val store: Store) {
         if (shapes.none { !it.hole }) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
         val d = ShapeDesign(shapes, nextId = shapes.size + 1)
         val name = obj.name.substringBeforeLast('.') + ".scad"
-        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode()))
+        // In the focus room the wrap is a plate step of its own: the room's entry snapshot is then the untagged mesh (without
+        // it the first render's step snapshots the tagged object and Undo / a discarding roomEnd would keep the design).
+        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode(),
+            undo = store.value.workspace.focus != null))
         load(name, draftFile.path, d.toScad(), onPlate = obj.name, shapes = d)
     }
 

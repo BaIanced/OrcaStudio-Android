@@ -186,7 +186,7 @@ class AppSettings(context: Context) {
 
     /** Experimental: the focus room ("Edit shape"), one place for every shape tool (docs/design/FOCUS-ROOM.md). */
     var focusRoom: Boolean
-        get() = prefs.getBoolean("focus_room", false)
+        get() = prefs.getBoolean("focus_room", true)
         set(value) = prefs.edit().putBoolean("focus_room", value).apply()
 
     /** The first-run "print in 3 taps" strip on Prepare was closed (or the first print was sent). */

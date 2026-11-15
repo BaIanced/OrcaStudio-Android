@@ -104,6 +104,23 @@ class FocusRoomTest {
         assertFalse(state(true, Selection(2)).roomOwnsShapes(2))
     }
 
+    @Test fun focusRoomIsOnByDefault() {
+        assertTrue(ChromeState().focusRoom)
+    }
+
+    @Test fun wrapOnlyVisitLeavesNothing() {
+        val entered = FocusRoom(0, "a", RoomTool.PUSH_PULL, wrapOnly = true)
+        assertFalse(entered.leavesNothing(true)) // nothing wrapped yet
+        val wrapped = entered.copy(wrapped = true)
+        assertTrue(wrapped.leavesNothing(true))
+        assertFalse(wrapped.leavesNothing(false)) // a real change in the builder: the design is no longer a plain wrap
+        // A change before the wrap, or a freeze, ends the "nothing happened" case for good.
+        assertFalse(wrapped.copy(wrapOnly = false).leavesNothing(true))
+        // A visit entered on a design, or a made part, never discards.
+        assertFalse(FocusRoom(0, "d", RoomTool.SHAPES).copy(wrapped = true).leavesNothing(true))
+        assertFalse(FocusRoom(-1, "New part", RoomTool.SHAPES, created = true).leavesNothing(true))
+    }
+
     @Test fun isolatesMeshObjectsOfTheRoomOnly() {
         val objects = listOf(obj(0, "a"), design(shapes).copy(index = 1, name = "d"))
         fun state(focus: FocusRoom?) = UiState(workspace = SceneState(scene = Scene(objects = objects), focus = focus))

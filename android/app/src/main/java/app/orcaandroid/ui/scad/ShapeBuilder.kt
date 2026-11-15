@@ -136,7 +136,7 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
         if (shape == null) sketching = null
         else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
             title = if (shape.path != null && shape.x(Shape.REVOLVE, 0.0) == 0.0) stringResource(R.string.sketch_title_profile) else null,
-            onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
+            onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sh.cancelNewSketch(id); sketching = null })
     }
     topOf?.let { id ->
         val shape = d.find(id)

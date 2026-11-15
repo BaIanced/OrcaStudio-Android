@@ -184,6 +184,53 @@ int main()
         f.op(); // [0 1 2] -> [1 2]: front gone, floor 0
         assert(f.calib == 0 && f.room.floor == 0);
     }
+    // roomEnd with discard (a visit that only wrapped a mesh): the model is the entry snapshot, no step stays, Redo as before.
+    {
+        Engine e;
+        e.op();
+        e.op();
+        e.do_undo(); // undo [0], redo [1]
+        const int entry = e.model;
+        const std::size_t u = e.undo.size(), r = e.redo.size();
+        const bool cu = e.can_undo();
+        std::deque<int> entry_redo = e.redo; // OrcaEngine::room_begin keeps this
+        roomundo::begin(e.room, e.undo);
+        e.op(); // the wrap: a step of its own, snapshot = the untagged model
+        e.room.tool_floor = e.undo.size(); // roomFloor
+        e.redo.clear();
+        e.op(); // the first render's step, snapshot = the tagged model
+        assert(e.undo.size() == u + 2 && e.undo[u] == entry);
+        // OrcaEngine::room_end(discard): restore undo[floor], then erase from the floor.
+        const int snap = e.undo[e.room.floor];
+        assert(roomundo::discard(e.room, e.undo, e.redo, entry_redo, e.calib));
+        e.model = snap;
+        assert(!e.room.open && e.model == entry && e.undo.size() == u && e.redo.size() == r && e.can_undo() == cu);
+        assert(e.do_redo() && e.model == entry + 1); // the Redo from before the visit still works
+    }
+    // Discard with nothing pushed: nothing to restore, calibration depth clamped, redo as before; outside the room: no-op.
+    {
+        Engine e;
+        e.op();
+        e.calib = 1;
+        std::deque<int> entry_redo;
+        roomundo::begin(e.room, e.undo);
+        assert(!roomundo::discard(e.room, e.undo, e.redo, entry_redo, e.calib) && !e.room.open && e.undo.size() == 1);
+        assert(!roomundo::discard(e.room, e.undo, e.redo, entry_redo, e.calib));
+    }
+    // A wrap followed by a real change is ONE plate step back to the untagged model at entry (no discard).
+    {
+        Engine e;
+        e.op(); // model 1 = the untagged mesh at entry
+        roomundo::begin(e.room, e.undo);
+        const int entry = e.model;
+        e.op(); // wrap (undo step: snapshot = untagged)
+        e.room.tool_floor = e.undo.size(); // roomFloor
+        e.op(); // first render
+        e.op(); // a real change
+        roomundo::end(e.room, e.undo, e.redo, e.calib);
+        assert(e.undo.size() == 2 && e.undo[1] == entry);
+        assert(e.do_undo() && e.model == entry && e.do_redo() && e.model == entry + 3);
+    }
     // rollback_on_error copies the Room back as it was.
     {
         Engine e;
