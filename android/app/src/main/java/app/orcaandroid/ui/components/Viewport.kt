@@ -382,10 +382,13 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                     }
 
                     override fun onContextMenu(x: Float, y: Float) {
+                        app.orcaandroid.ui.prepare.HoldTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.workspace.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
                         else vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
+                    // The hold menu's slide-through (edge menu setting): the finger stays with this view after the long press.
+                    override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = app.orcaandroid.ui.prepare.HoldTouch.touch(v, x, y, held)
 
                     /** This gesture's aim, as an offset from the pointer: a finger's dot sits above it; a picked-up point stays put and moves 1:1. */
                     private var aimOffset = floatArrayOf(0f, 0f)

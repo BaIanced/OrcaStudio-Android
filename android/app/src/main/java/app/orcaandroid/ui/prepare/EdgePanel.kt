@@ -1,51 +1,30 @@
 package app.orcaandroid.ui.prepare
 
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -58,12 +37,8 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerInputScope
-import androidx.compose.ui.input.pointer.PointerType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -75,7 +50,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -85,45 +59,13 @@ import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** The back row's key among a level's rows. */
-private const val BACK = "<back>"
-
-/** Pen / mouse hover over a branch, and a still finger on one during slide-through, open it after this long. */
-private const val DWELL_MS = 400L
-
-/** Toggles flip and leave the panel open so several can be set (spec section 5); every other leaf closes it. */
-private val KEEP_OPEN = setOf("plate.arrange.snap", "plate.arrange.move_lock", "reshape.invert")
-private fun MenuNode.keepsOpen() = checked != null && (id.startsWith("view.") || id.startsWith("reshape.mirror.") || id in KEEP_OPEN)
-
-/** Open state, drill-down path and slide-through tracking. Session only: closed and back at the top level on every start. */
-private class EdgeMenu {
+/** Open state on top of the shared drill-down and slide tracking (rows in window pixels). Closed and at the top level on every start. */
+private class EdgeMenu : MenuNav() {
     var open by mutableStateOf(false)
-    var path by mutableStateOf(emptyList<String>())
-    var sliding by mutableStateOf(false)
-    /** The row under the sliding finger. */
-    var highlight by mutableStateOf<String?>(null)
-    /** Rows on screen in window pixels, by "<level>|<row>" (a drill animates two levels at once). */
-    val rows = mutableMapOf<String, Rect>()
-    var panel = Rect.Zero
     var handle: LayoutCoordinates? = null
-    /** After a drill during a slide the finger sits on a row of the new level it never chose: lifting there runs nothing. */
-    var armed = true
-    var landed = false
-    var landing: String? = null
-
-    val level get() = path.joinToString("/")
-    fun hit(p: Offset): String? {
-        val prefix = "$level|"
-        return rows.entries.firstOrNull { it.key.startsWith(prefix) && it.value.contains(p) }?.key?.removePrefix(prefix)
-    }
-    fun shown(levelKey: String) = rows.keys.any { it.startsWith("$levelKey|") }
     fun toWindow(p: Offset): Offset? = handle?.takeIf { it.isAttached }?.localToWindow(p)
 
     fun show() { open = true; path = emptyList(); highlight = null }
@@ -140,44 +82,23 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
     val left = state.chrome.edgeMenuLeft
     val m = remember { EdgeMenu() }
     val haptic = LocalHapticFeedback.current
-    val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
+    val run = rememberMenuRunner(vm)
     val cur by rememberUpdatedState(state)
     val curView by rememberUpdatedState(view)
-    val (valid, _) = menuLevel(state, m.path)
+    val (valid, levelRows) = menuLevel(state, m.path)
     // A branch that went away (the selection changed) closes with its children.
     if (valid != m.path) SideEffect { m.path = valid }
 
-    fun runLeaf(node: MenuNode) {
-        if (!node.enabled(cur)) return
+    /** A tap, or a lift during slide-through: back goes up, a branch opens, a leaf runs (and closes the panel unless a toggle). */
+    fun activate(key: String) = m.activate(key, menuLevel(cur, m.path).second, cur) { node ->
         if (!node.keepsOpen()) m.close()
-        when (val a = node.action) {
-            is MenuAction.Call -> a.run(MenuEnv(vm, cur, curView))
-            // ViewContextMenu hosts the add dialogs for the whole overlay.
-            is MenuAction.Dialog -> vm.scene.openAddDialog(a.dialog)
-            is MenuAction.Launcher -> if (a.launcher == "import") importModels.launch(arrayOf("*/*"))
-            null -> Unit
-        }
-    }
-    /** A tap, or a lift during slide-through: back goes up, a branch opens, a leaf runs. */
-    fun activate(key: String) {
-        if (key == BACK) { m.path = m.path.dropLast(1); return }
-        val node = menuLevel(cur, m.path).second.firstOrNull { it.id == key } ?: return
-        if (!node.isLeaf) { if (node.enabled(cur)) m.path = m.path + node.id }
-        else if (node.action != null) runLeaf(node)
+        run(node, cur, curView)
     }
 
-    val onSlide by rememberUpdatedState<(Offset) -> Unit> { local ->
-        val p = m.toWindow(local)
-        val key = p?.let(m::hit)
-        if (!m.armed) {
-            if (!m.landed) { if (m.shown(m.level)) { m.landed = true; m.landing = key } }
-            else if (key != m.landing) m.armed = true
-        }
-        if (key != m.highlight) {
-            m.highlight = key
-            if (key != null) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        }
+    val slideTo by rememberUpdatedState<(Offset?) -> Unit> { p ->
+        if (m.slideTo(p)) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
+    val onSlide by rememberUpdatedState<(Offset) -> Unit> { local -> slideTo(m.toWindow(local)) }
     val onSlideEnd by rememberUpdatedState<(Offset?) -> Unit> { local ->
         val p = local?.let(m::toWindow)
         val key = p?.let(m::hit)
@@ -191,18 +112,8 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
             else -> m.close()
         }
     }
-    // Slide-through: a finger held still on a branch (or the back row) opens it, so one gesture reaches a nested leaf.
-    LaunchedEffect(m.sliding, m.highlight, valid) {
-        val k = m.highlight ?: return@LaunchedEffect
-        if (!m.sliding || !m.armed) return@LaunchedEffect
-        if (k != BACK && menuLevel(cur, valid).second.none { it.id == k && !it.isLeaf }) return@LaunchedEffect
-        delay(DWELL_MS)
-        m.armed = false
-        m.landed = false
-        m.highlight = null
-        activate(k)
-        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-    }
+    SlideDwell(m, levelRows) { activate(it) }
+    SlideAutoScroll(m) { slideTo(it) }
     BackHandler(enabled = m.open) { m.close() }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -278,95 +189,9 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                     },
                     label = "edge level",
                 ) { path ->
-                    MenuLevel(state, view, m, path, onActivate = ::activate) { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) }
+                    MenuLevel(state, view, m, path, menuLevel(state, path).second, divider = 0, onActivate = ::activate,
+                        onSlider = { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) }, modifier = Modifier.fillMaxSize())
                 }
-            }
-        }
-    }
-}
-
-/** One level: the back row (below the top level), then the level's rows. */
-@Composable
-private fun MenuLevel(state: UiState, view: PlateView?, m: EdgeMenu, path: List<String>, onActivate: (String) -> Unit,
-                      onSlider: (MenuNode, Float) -> Unit) {
-    val levelKey = path.joinToString("/")
-    val nodes = menuLevel(state, path).second
-    val live = levelKey == m.level
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = 8.dp)) {
-        val parent = path.lastOrNull()?.let(::findMenuNode)
-        if (parent != null) {
-            MenuRowFrame(m, levelKey, BACK, live && m.highlight == BACK, enabled = true, onClick = { onActivate(BACK) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, stringResource(R.string.back))
-                Spacer(Modifier.width(12.dp))
-                Text(parent.text ?: stringResource(parent.label), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1)
-            }
-        }
-        nodes.forEach { node ->
-            val enabled = node.enabled(state)
-            val slider = node.slider
-            if (slider != null) {
-                MenuRowFrame(m, levelKey, node.id, false, enabled, onClick = null) {
-                    Text(node.text ?: stringResource(node.label), Modifier.width(80.dp), style = MaterialTheme.typography.bodyLarge, maxLines = 1)
-                    Slider(slider.value(state), { onSlider(node, it) }, Modifier.weight(1f).padding(end = 8.dp), enabled = enabled,
-                        valueRange = slider.range)
-                }
-                return@forEach
-            }
-            val checked = node.checked?.invoke(state, view)
-            MenuRowFrame(m, levelKey, node.id, live && m.highlight == node.id, enabled, onClick = { onActivate(node.id) },
-                hoverOpen = if (!node.isLeaf) { { onActivate(node.id) } } else null, checked = checked) {
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { node.icon?.let { Icon(it(), null) } }
-                Spacer(Modifier.width(12.dp))
-                Text(node.text ?: stringResource(node.label), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
-                if (checked == true) Icon(Icons.Default.Check, null, Modifier.padding(horizontal = 4.dp))
-                if (!node.isLeaf) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.padding(end = 8.dp))
-                // Shortcuts (T-083) wire this button; until then it only shows where it will be.
-                else IconButton(onClick = {}, enabled = enabled) { Icon(Icons.Outlined.PushPin, stringResource(R.string.shortcut_add), Modifier.size(20.dp)) }
-            }
-        }
-    }
-}
-
-/** A 48 dp row that registers its bounds for slide-through hit tests. */
-@Composable
-private fun MenuRowFrame(m: EdgeMenu, levelKey: String, key: String, highlighted: Boolean, enabled: Boolean, onClick: (() -> Unit)?,
-                         hoverOpen: (() -> Unit)? = null, checked: Boolean? = null, content: @Composable () -> Unit) {
-    val id = "$levelKey|$key"
-    DisposableEffect(id) { onDispose { m.rows.remove(id) } }
-    val onHover by rememberUpdatedState(hoverOpen)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .onGloballyPositioned { m.rows[id] = it.boundsInWindow() }
-            .background(if (highlighted) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-            .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
-            .then(if (checked != null) Modifier.semantics { selected = checked } else Modifier)
-            .then(if (hoverOpen != null) Modifier.pointerInput(id) { hoverDwell { onHover?.invoke() } } else Modifier)
-            .padding(start = 12.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        androidx.compose.runtime.CompositionLocalProvider(
-            androidx.compose.material3.LocalContentColor provides
-                if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f),
-        ) { content() }
-    }
-}
-
-/** Pen or mouse hovering over the node for [DWELL_MS] runs [onDwell] ("submenus on hover"); touch never hovers. */
-private suspend fun PointerInputScope.hoverDwell(onDwell: () -> Unit) = coroutineScope {
-    var job: Job? = null
-    awaitPointerEventScope {
-        while (true) {
-            val e = awaitPointerEvent()
-            val type = e.changes.firstOrNull()?.type
-            when (e.type) {
-                PointerEventType.Enter -> if (type == PointerType.Stylus || type == PointerType.Mouse || type == PointerType.Eraser) {
-                    job?.cancel()
-                    job = launch { delay(DWELL_MS); onDwell() }
-                }
-                PointerEventType.Exit, PointerEventType.Press -> { job?.cancel(); job = null }
-                else -> Unit
             }
         }
     }

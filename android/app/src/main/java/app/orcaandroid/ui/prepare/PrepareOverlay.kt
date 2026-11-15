@@ -287,7 +287,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 containerColor = androidx.compose.ui.graphics.Color.Red, contentColor = androidx.compose.ui.graphics.Color.White,
             ) { Icon(Icons.Default.PriorityHigh, label) }
         }
-        ViewContextMenu(state, vm)
+        ViewContextMenu(state, vm, view)
     }
     // Outside the 8 dp inset: the handle sits on the view's edge. The panel starts below the top bar.
     if (edge) EdgePanel(state, vm, view, top = bars + 14.dp)
@@ -344,16 +344,18 @@ private fun SelectionBanner(state: UiState, vm: AppViewModel) {
 
 /**
  * The 3D view's context menu (right click, long press) at the pointer, as on the desktop: object
- * actions on an object (or on all selected objects), adding things on the empty bed.
+ * actions on an object (or on all selected objects), adding things on the empty bed. With the edge menu on: the menu tree
+ * (HoldMenu.kt). Either way it hosts the add dialogs of the whole overlay.
  */
 @Composable
-private fun ViewContextMenu(state: UiState, vm: AppViewModel) {
+private fun ViewContextMenu(state: UiState, vm: AppViewModel, view: PlateView?) {
     var dialog by remember { mutableStateOf<String?>(null) }
     val importModels = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { if (it.isNotEmpty()) vm.files.openModels(it) }
     val at = state.workspace.contextMenu
     // The overlay is inset by 8 dp from the view whose pixels [at] are in.
     val inset = with(LocalDensity.current) { 8.dp.roundToPx() }
-    if (at != null) {
+    if (state.chrome.edgeMenu) HoldMenu(state, vm, view)
+    else if (at != null) {
         val close = vm.scene::closeContextMenu
         Box(Modifier.offset { IntOffset(at.first.toInt() - inset, at.second.toInt() - inset) }) {
             DropdownMenu(expanded = true, onDismissRequest = close) {

@@ -48,7 +48,7 @@ import app.orcaandroid.ui.roomOwnsShapes
 
 /**
  * The one menu tree behind the edge panel, the hold menu and the shortcuts (docs/design/EDGE-MENU.md section 4).
- * The edge panel (EdgePanel.kt) draws it. Ids are stable strings that shortcuts store: never rename one.
+ * The edge panel (EdgePanel.kt) and the hold menu (HoldMenu.kt) draw it through MenuLevel.kt. Ids are stable strings that shortcuts store: never rename one.
  */
 
 /** Which context a node's id shows in: `reshape.*` only in Reshape, `view.*` / `view` in both, the rest outside Reshape. */
@@ -102,6 +102,8 @@ class MenuNode(
     val scope: MenuScope = MenuScope.of(id),
     /** A literal label that replaces [label] (the mirror axes "X", "Y", "Z"). */
     val text: String? = null,
+    /** The level under this branch shows its leaves as icon buttons, not rows (Align). */
+    val iconRow: Boolean = false,
 ) {
     val isLeaf get() = children.isEmpty()
 
@@ -122,8 +124,8 @@ fun flattenShown(state: UiState, nodes: List<MenuNode> = menuRoots(state)): List
  * The rows a drill-down shows after opening the branches [path] (ids, top level first), and the part of [path] still open:
  * a branch that is no longer shown (the selection changed) closes with everything under it.
  */
-fun menuLevel(state: UiState, path: List<String>): Pair<List<String>, List<MenuNode>> {
-    var rows = menuRoots(state)
+fun menuLevel(state: UiState, path: List<String>, roots: List<MenuNode> = menuRoots(state)): Pair<List<String>, List<MenuNode>> {
+    var rows = roots
     val open = mutableListOf<String>()
     for (id in path) {
         val branch = rows.firstOrNull { it.id == id && !it.isLeaf } ?: break
@@ -131,6 +133,27 @@ fun menuLevel(state: UiState, path: List<String>): Pair<List<String>, List<MenuN
         rows = branch.shownChildren(state)
     }
     return open to rows
+}
+
+/** The hold menu's top level: [rows], of which the first [group] are the hit's own group (a divider follows them). */
+class HoldTop(val rows: List<MenuNode>, val group: Int)
+
+/**
+ * The hold menu's top level (spec section 6), by what the press hit: on one object Object's rows, on a selection of several
+ * Selection's, on the empty bed Add's, each followed by the other top rows; in Reshape or a room the plain top level.
+ */
+fun holdMenuTop(state: UiState): HoldTop {
+    val roots = menuRoots(state)
+    val ws = state.workspace
+    val groupId = when {
+        ws.focus != null || ws.tool is Tool.Sculpt -> null
+        ws.multiSelection.isNotEmpty() -> SELECTION.id
+        ws.selection != null -> OBJECT.id
+        else -> ADD.id
+    }
+    val group = roots.firstOrNull { it.id == groupId } ?: return HoldTop(roots, 0)
+    val own = group.shownChildren(state)
+    return HoldTop(own + roots.filter { it !== group }, own.size)
 }
 
 /** Looks a stored shortcut id up; unknown ids give null (renamed or removed). */
@@ -209,7 +232,7 @@ private val SELECTION = MenuNode(
         MenuNode("selection.delete", R.string.delete, { Icons.Default.Delete }, action = call("scene.delete") { it.vm.scene.deleteSelected() }),
         MenuNode("selection.center", R.string.center_on_plate, { Icons.Default.CenterFocusStrong }, action = call("scene.center") { it.vm.scene.centerSelected() }),
         MenuNode(
-            "selection.align", R.string.menu_align, { Icons.Default.AlignHorizontalLeft },
+            "selection.align", R.string.menu_align, { Icons.Default.AlignHorizontalLeft }, iconRow = true,
             children = listOf(
                 align("selection.align.left", R.string.align_left, Icons.Default.AlignHorizontalLeft, AlignKind.LEFT),
                 align("selection.align.center_x", R.string.align_center_x, Icons.Default.AlignHorizontalCenter, AlignKind.CENTER_X),

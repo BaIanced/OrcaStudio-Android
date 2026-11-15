@@ -133,6 +133,37 @@ class MenuTreeTest {
         assertEquals(listOf("plate.edit", "plate.edit.split"), menuLevel(one, listOf("plate.edit", "plate.edit.split", "plate.edit.split.parts")).first)
     }
 
+    /** The hold menu's top level opens the hit's group in place and still reaches everything the tree does. */
+    @Test fun holdMenuStartsWithTheHitsGroup() {
+        fun reachableFrom(s: UiState) = flattenShown(s, holdMenuTop(s).rows).filter { it.enabled(s) }.mapNotNull { it.action?.key }.toSet()
+        val one = state(listOf(obj(0)), sel = Selection(0))
+        val top = holdMenuTop(one)
+        val objectRows = menuLevel(one, listOf("object")).second
+        assertEquals(objectRows.map { it.id }, top.rows.take(top.group).map { it.id })
+        assertTrue(top.rows.none { it.id == "object" } && top.rows.any { it.id == "plate.duplicate" })
+        assertEquals(reachable(one), reachableFrom(one))
+
+        val many = state(listOf(obj(0), obj(1)), multi = listOf(Selection(0), Selection(1)))
+        val multiTop = holdMenuTop(many)
+        assertEquals(listOf("selection.duplicate", "selection.delete", "selection.center", "selection.align", "selection.assemble"),
+            multiTop.rows.take(multiTop.group).map { it.id })
+        assertTrue(findMenuNode("selection.align")!!.iconRow)
+        assertEquals(reachable(many), reachableFrom(many))
+
+        val empty = state(listOf(obj(0)))
+        val emptyTop = holdMenuTop(empty)
+        assertEquals("plate.add.import", emptyTop.rows.first().id)
+        assertEquals(7, emptyTop.group)
+        assertEquals(reachable(empty), reachableFrom(empty))
+        // A drill-down from the hold menu's own top level.
+        assertEquals(listOf("selection.align"), menuLevel(many, listOf("selection.align"), multiTop.rows).first)
+
+        // Reshape: the plain Reshape tree, no group.
+        val reshape = state(listOf(obj(0)), sel = Selection(0), tool = Tool.Sculpt(brush = "draw"))
+        assertEquals(0, holdMenuTop(reshape).group)
+        assertEquals(menuRoots(reshape).map { it.id }, holdMenuTop(reshape).rows.map { it.id })
+    }
+
     @Test fun idsAreUniqueAndScoped() {
         val all = mutableListOf<MenuNode>()
         fun walk(n: MenuNode) { all += n; n.children.forEach(::walk) }
