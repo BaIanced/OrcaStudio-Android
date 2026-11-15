@@ -11,6 +11,9 @@ import javax.microedition.khronos.opengles.GL10
 /** Selection id of a copy in the scene mesh: object * stride + instance (the engine's INSTANCE_ID_STRIDE). */
 const val INSTANCE_ID_STRIDE = 4096
 
+/** The plate shrinks with the view height down to this share of the tallest view since the last reframe, then holds. */
+private const val SCALE_FLOOR = 0.6f
+
 /** Plate badge size and gap, as fractions of the bed depth (desktop: 16 and 3 mm per 200 mm, a bit bigger for touch). */
 private const val BADGE_SIZE = 0.1f
 private const val BADGE_GAP = 0.02f
@@ -464,6 +467,8 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         extraSlots.clear(); extrasDirty = true
     }
 
+    private var maxViewH = 0
+
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
         glViewport(0, 0, width, height)
         // Resizing the surface (pulling the panel handle) keeps the camera (user, 2026-10-15); only the first layout and a
@@ -473,6 +478,10 @@ class PlateRenderer(val camera: Camera) : GLSurfaceView.Renderer {
         frameLandscape = deviceLandscape
         viewW = width; viewH = height
         camera.setViewport(width, height)
+        // The plate shrinks with the view height down to SCALE_FLOOR of the tallest view since the last reframe, then holds
+        // (the view crops instead), so a fully raised panel never shrinks it out of sight.
+        maxViewH = if (reframe) height else maxOf(maxViewH, height)
+        camera.minScaleHeight = (SCALE_FLOOR * maxViewH).toInt()
         if (reframe) lastFrame?.let { (index, top) -> frame(index, top) }
     }
 
