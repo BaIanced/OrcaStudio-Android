@@ -4537,3 +4537,6 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 
 ## 2026-11-15 T-082 hold menu (device-checked: debug build on the WSA VD)
 - afbfe7a: with `edge_menu` on, the hold menu is a Popup at the finger on the T-080 tree (start group by hit), slide-through via `onLongPressTouch`, align icon rows, auto-scroll; shared logic in `MenuLevel.kt`. Hold-drag Duplicate, hold-then-tap, align of 2 objects device-checked; right click source-checked only. Setting off: menu dumps identical. Details: MASTER-PLAN T-082 tick.
+
+## 2026-11-15 T-083 shortcuts (device-checked: debug build on the WSA VD)
+- 0358364: pins on menu leaf rows feed a shortcut dock (`ShortcutDock.kt`, `menu_shortcuts`, scoped plate / room / Reshape, max 6, dimmed with a reason, edit mode). All done-when items device-checked; setting off unchanged. Details: MASTER-PLAN T-083 tick.
