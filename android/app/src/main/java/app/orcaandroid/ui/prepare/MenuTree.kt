@@ -334,15 +334,12 @@ private val MESH_EDIT = MenuNode(
     ),
 )
 
-private val BRUSHES = listOf(
-    "draw" to R.string.sculpt_draw, "inflate" to R.string.sculpt_inflate, "smooth" to R.string.sculpt_smooth, "flatten" to R.string.sculpt_flatten,
-    "pinch" to R.string.sculpt_pinch, "crease" to R.string.sculpt_crease, "grab" to R.string.sculpt_grab,
-)
+private val BRUSHES = SCULPT_BRUSH_IDS.map { it to brushLabel(it) }
 
 private val RESHAPE_BRUSH = MenuNode(
     "reshape.brush", R.string.menu_brush, { Icons.Default.Brush }, visible = { it.reshaping },
     children = BRUSHES.map { (brush, label) ->
-        MenuNode("reshape.brush.$brush", label, checked = { s, _ -> s.sculptTool?.brush == brush },
+        MenuNode("reshape.brush.$brush", label, { brushIcon(brush) }, checked = { s, _ -> s.sculptTool?.brush == brush },
             action = call("sculpt.brush.$brush") { e -> e.sculpt { it.copy(brush = brush) } })
     },
 )

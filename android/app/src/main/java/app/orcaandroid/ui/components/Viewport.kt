@@ -385,8 +385,11 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
                         app.orcaandroid.ui.prepare.HoldTouch.reset()
                         val (o, d) = v.camera.ray(x, y)
                         if (vm.state.value.workspace.tool is Tool.Cut) vm.scene.cutAlignAt(o, d, x, y, v.section.current)
+                        // Reshape (edge menu): the Reshape tree, the selection stays (a pick would change the part being shaped).
+                        else if (paintMenu()) vm.scene.openMenuAt(x, y)
                         else vm.scene.openContextMenu(o, d, x, y, v.section.current)
                     }
+                    override fun paintMenu() = vm.state.value.let { it.chrome.edgeMenu && it.workspace.tool is Tool.Sculpt }
                     // The hold menu's slide-through (edge menu setting): the finger stays with this view after the long press.
                     override fun onLongPressTouch(x: Float, y: Float, held: Boolean) = app.orcaandroid.ui.prepare.HoldTouch.touch(v, x, y, held)
 
@@ -775,8 +778,17 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
     val sculptCursor by vm.scene.sculptCursor.collectAsState()
     val sculptRadius = (state.workspace.tool as? Tool.Sculpt)?.radius
         ?: (state.workspace.tool as? Tool.Paint)?.takeIf { it.shape == "sphere" || it.shape == "circle" }?.radius
-    LaunchedEffect(v, sculptCursor, sculptRadius) {
-        val c = sculptCursor?.takeIf { sculptRadius != null }
+    // Reshape size drag (edge menu brush strip / slider): the ring stays at the last brush point while the finger is down; with
+    // none yet, at the part under the view's centre (no ring when the centre misses the part).
+    val sizing = app.orcaandroid.ui.prepare.BrushSizeDrag.active && state.workspace.tool is Tool.Sculpt
+    val lastCursor = remember(state.workspace.selection?.obj) { arrayOfNulls<Pair<app.orcaandroid.core.Vec3, app.orcaandroid.core.Vec3>>(1) }
+    LaunchedEffect(v, sizing) {
+        if (sizing && lastCursor[0] == null && v.width > 0) vm.scene.sculptHover(v.camera.ray(v.width / 2f, v.height / 2f))
+        else if (!sizing && lastCursor[0] != null && sculptCursor == lastCursor[0]) vm.scene.sculptHover(null)
+    }
+    LaunchedEffect(v, sculptCursor, sculptRadius, sizing) {
+        if (sculptCursor != null) lastCursor[0] = sculptCursor
+        val c = (sculptCursor ?: lastCursor[0]?.takeIf { sizing })?.takeIf { sculptRadius != null }
         val ring = c?.let { (p, n) -> floatArrayOf(p.x, p.y, p.z, n.x, n.y, n.z, sculptRadius!!) }
         v.onGl { brushCursor = ring }
     }

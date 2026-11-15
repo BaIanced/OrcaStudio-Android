@@ -270,7 +270,15 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                     .heightIn(max = (h - 72.dp).coerceAtLeast(96.dp))
                 else Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp).fillMaxWidth().heightIn(max = (h * ToolCardDefaults.MAX_HEIGHT_FRACTION).coerceAtLeast(96.dp)))
         }
-        if (!editing) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
+        // Reshape with the edge menu (BrushStrip.kt): the brush strip above the bottom row and the size slider opposite the
+        // handle, in place of the Sculpt card.
+        val sculpt = (state.workspace.tool as? Tool.Sculpt)?.takeIf { edge }
+        if (sculpt != null) {
+            ReshapeBar(state, vm, view, sculpt, wide, Modifier.align(Alignment.BottomStart).padding(bottom = 72.dp))
+            val left = state.chrome.edgeMenuLeft
+            BrushSizeSlider(sculpt, vm, labelRight = !left, Modifier.align(androidx.compose.ui.BiasAlignment(if (left) 1f else -1f, -0.1f)))
+        }
+        if (!editing && sculpt == null) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column || edge) 72.dp else 116.dp)) {
             // Shortcut dock (ShortcutDock.kt): end side, 8 dp above the tool card or the bottom row.
@@ -279,9 +287,9 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             }
             ToolPanel(state, vm)
         }
-        // Wide: a column beside the handle, above the Slice button.
+        // Wide: a column beside the handle, above the Slice button (and above the brush strip in Reshape).
         if (edge && wide && !editing) ShortcutDock(state, vm, view, vertical = true,
-            Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp, end = if (state.chrome.edgeMenuLeft) 0.dp else 40.dp))
+            Modifier.align(Alignment.BottomEnd).padding(bottom = if (sculpt != null) 136.dp else 72.dp, end = if (state.chrome.edgeMenuLeft) 0.dp else 40.dp))
         if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
         else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.

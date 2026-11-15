@@ -81,6 +81,11 @@ interface PlateListener {
     /** After a long press opened the menu the finger is still down: it moved to (x, y) ([held] false = it lifted there). */
     fun onLongPressTouch(x: Float, y: Float, held: Boolean) {}
     /**
+     * Paint mode: a right click (pen button), or a long press that began off the part (a camera touch, never a stroke), opens
+     * [onContextMenu] too. On for Reshape with the edge menu.
+     */
+    fun paintMenu(): Boolean = false
+    /**
      * Measure mode: the pointer is at (x, y). [phase] 0 = down, 1 = move, 2 = up (places), 3 = cancel, 4 = hover (shows only).
      * [exact]: a mouse or pen, whose point sits right under the pointer (a finger's sits above it).
      */
@@ -309,6 +314,14 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                 longPressed = true
                 loupeOn = true
                 listener?.onMeasureLoupe(e.x, e.y, 0, loupeExact)
+                return
+            }
+            // Reshape with the edge menu: a still press off the part (it only turns the camera) opens the menu; on the part it stays a stroke.
+            if (mode == InteractionMode.PAINT && paintOrbit && !multiTouch && !moved && maxTravel <= touchSlop / 3 && !rightButton && !middleButton &&
+                !penOrbit && penInstant == null && listener?.paintMenu() == true) {
+                longPressed = true
+                listener?.onContextMenu(e.x, e.y)
+                listener?.onLongPressTouch(e.x, e.y, true)
                 return
             }
             if (mode != InteractionMode.NAVIGATE || multiTouch || moved || maxTravel > touchSlop / 3 || rightButton || middleButton || rectangle || penOrbit || penInstant != null) return
@@ -712,7 +725,7 @@ class PlateView(context: Context) : GLSurfaceView(context) {
                     if (loupeOn) listener?.onMeasureLoupe(loupeX, loupeY, 2, loupeExact)
                     else if (longPressed) listener?.onLongPressTouch(event.x, event.y, false)
                 } else if (rightButton) {
-                    if (!moved && mode == InteractionMode.NAVIGATE) listener?.onContextMenu(event.x, event.y)
+                    if (!moved && (mode == InteractionMode.NAVIGATE || mode == InteractionMode.PAINT && listener?.paintMenu() == true)) listener?.onContextMenu(event.x, event.y)
                 } else if (cutMoving) {
                     cutMoving = false
                     queueEvent { renderer.cutXray = false }

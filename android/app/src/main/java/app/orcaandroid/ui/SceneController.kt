@@ -565,6 +565,9 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun closeContextMenu() = store.update { it.copy(workspace = it.workspace.copy(contextMenu = null)) }
 
+    /** Opens the menu at (x, y) without picking (Reshape: the selection is the part being shaped). */
+    fun openMenuAt(x: Float, y: Float) = store.update { it.copy(workspace = it.workspace.copy(contextMenu = x to y)) }
+
     fun setMeasureSnap(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSnap = on)) }
     fun setMeasureAxes(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureAxes = on)) }
     fun setMeasureSteps(on: Boolean) = store.update { it.copy(workspace = it.workspace.copy(measureSteps = on)) }

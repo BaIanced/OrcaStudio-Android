@@ -118,8 +118,8 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val alpha = LocalOverlayAlpha.current
-        // Out of the way of a dialog and of the hold menu (spec section 5); kept while a slide runs (it owns the finger).
-        val hidden = state.workspace.addDialog != null || state.workspace.contextMenu != null
+        // Out of the way of a dialog, the hold menu and the Reshape size drag (spec section 5); kept while a slide runs (it owns the finger).
+        val hidden = state.workspace.addDialog != null || state.workspace.contextMenu != null || BrushSizeDrag.active
         if (!hidden || m.sliding) {
             val label = stringResource(R.string.edge_menu_title)
             Box(

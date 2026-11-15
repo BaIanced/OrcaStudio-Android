@@ -1395,4 +1395,12 @@
     <string name="shortcut_need_scene">Add an object first</string>
     <string name="shortcut_not_in_room">Not available while editing a shape</string>
     <string name="shortcut_unavailable">Not available right now</string>
+    <string name="brush_strip">Brushes</string>
+    <string name="brush_strip_state">Brush %1$s, size %2$.1f mm</string>
+    <string name="brush_next">Next brush</string>
+    <string name="brush_previous">Previous brush</string>
+    <string name="brush_bigger">Bigger</string>
+    <string name="brush_smaller">Smaller</string>
+    <string name="brush_size_label">Brush size</string>
+    <string name="brush_size_mm">%.1f mm</string>
 </resources>
