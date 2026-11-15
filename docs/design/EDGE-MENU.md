@@ -1,7 +1,6 @@
-# Edge menu, hold menu, shortcuts, brush strip (visual round 4) - spec  [DRAFT, complete; waiting on the user]
+# Edge menu, hold menu, shortcuts, brush strip (visual round 4) - spec  [APPROVED 2026-11-15, ANSWERS 38]
 
-Status 2026-11-15 (Opus, session 2): all sections written. Build tasks (section 10) go into MASTER-PLAN only after the
-user says yes. Source mockup: `docs/audit/mockups/visual-round4.html` (artifact J1GKjZ8xupCgfXJcFiabaC). User verdicts:
+Status 2026-11-15: approved by the user; build tasks are MASTER-PLAN Batch 8 (T-080..T-086). Source mockup: `docs/audit/mockups/visual-round4.html` (artifact J1GKjZ8xupCgfXJcFiabaC). User verdicts:
 ANSWERS 32 (round 3), 36 (pins broken, A strip liked + scrub / fade / swipe-up size), 37 (Edge panel warm, Hold menu warm).
 
 ## 1. What the user asked for
