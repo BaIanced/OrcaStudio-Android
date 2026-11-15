@@ -4530,3 +4530,4 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 - More > Edit shape on the 20 mm cube: Shapes (wrap) + a hole cylinder, Done -> 104 tris; one plate Undo -> 12 tris and re-entry opens on Push / pull (mesh, no design tag); Redo -> the holed design again.
 - Redo across a discard: with Redo live, Edit shape, Shapes, Done -> mesh unchanged (12 tris), Redo still gives the holed design (no step added by the visit).
 - Seen again: false "10 mm below the bed" Fit check after the wrap (finding 4). Logged: ANSWERS 30, MASTER-PLAN T-055 [x], BASELINE "After batch 5", backlog rows.
+- 2026-11-15 T-080 Menu tree: ef66622, source + JVM-checked (MenuTreeTest 10/10; compile + full unit tests exit 0). Not wired to any UI yet.
