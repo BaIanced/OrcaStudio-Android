@@ -48,7 +48,7 @@ import app.orcaandroid.ui.roomOwnsShapes
 
 /**
  * The one menu tree behind the edge panel, the hold menu and the shortcuts (docs/design/EDGE-MENU.md section 4).
- * Nothing draws it yet. Ids are stable strings that shortcuts store: never rename one.
+ * The edge panel (EdgePanel.kt) draws it. Ids are stable strings that shortcuts store: never rename one.
  */
 
 /** Which context a node's id shows in: `reshape.*` only in Reshape, `view.*` / `view` in both, the rest outside Reshape. */
@@ -117,6 +117,21 @@ fun menuRoots(state: UiState): List<MenuNode> = MENU_TREE.filter { it.shown(stat
 /** Every shown node under (and including) [nodes], depth first. */
 fun flattenShown(state: UiState, nodes: List<MenuNode> = menuRoots(state)): List<MenuNode> =
     nodes.flatMap { listOf(it) + flattenShown(state, it.shownChildren(state)) }
+
+/**
+ * The rows a drill-down shows after opening the branches [path] (ids, top level first), and the part of [path] still open:
+ * a branch that is no longer shown (the selection changed) closes with everything under it.
+ */
+fun menuLevel(state: UiState, path: List<String>): Pair<List<String>, List<MenuNode>> {
+    var rows = menuRoots(state)
+    val open = mutableListOf<String>()
+    for (id in path) {
+        val branch = rows.firstOrNull { it.id == id && !it.isLeaf } ?: break
+        open += id
+        rows = branch.shownChildren(state)
+    }
+    return open to rows
+}
 
 /** Looks a stored shortcut id up; unknown ids give null (renamed or removed). */
 fun findMenuNode(id: String): MenuNode? = ALL_NODES[id]
@@ -260,10 +275,10 @@ private val ARRANGE = MenuNode(
         MenuNode("plate.arrange.auto_orient", R.string.auto_orient, action = call("scene.auto_orient") { it.vm.scene.autoOrient() }),
         MenuNode("plate.arrange.select_multiple", R.string.select_multiple, { Icons.Default.SelectAll },
             checked = { s, _ -> s.workspace.selectMode }, action = call("scene.select_mode") { it.vm.scene.setSelectMode(!it.state.workspace.selectMode) }),
-        MenuNode("plate.arrange.snap", R.string.snap_toggle, checked = { s, _ -> s.workspace.snapPrepare },
+        MenuNode("plate.arrange.snap", R.string.menu_snap, checked = { s, _ -> s.workspace.snapPrepare },
             action = call("scene.snap") { it.vm.toggleSnap() }),
         // Cycles free / X / Y; checked while a lock is on.
-        MenuNode("plate.arrange.move_lock", R.string.move_lock, { Icons.Default.OpenWith }, checked = { s, _ -> s.workspace.moveLock >= 0 },
+        MenuNode("plate.arrange.move_lock", R.string.menu_move_lock,{ Icons.Default.OpenWith }, checked = { s, _ -> s.workspace.moveLock >= 0 },
             action = call("scene.move_lock") { it.vm.cycleMoveLock() }),
     ),
 )

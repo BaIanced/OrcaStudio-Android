@@ -118,6 +118,21 @@ class MenuTreeTest {
         assertTrue("reshape.strength" in ids("draw") && "reshape.invert" in ids("draw"))
     }
 
+    @Test fun drillDownLevels() {
+        val one = state(listOf(obj(0)), sel = Selection(0))
+        val (open, rows) = menuLevel(one, listOf("object"))
+        assertEquals(listOf("object"), open)
+        assertTrue(rows.any { it.id == "object.cut" })
+        assertEquals(listOf("plate.arrange.arrange"), menuLevel(one, listOf("plate.arrange")).second.map { it.id }.take(1))
+        // The selection went away: Object is no longer shown, so the panel falls back to the top level.
+        val none = state(listOf(obj(0)))
+        val (back, top) = menuLevel(none, listOf("object"))
+        assertTrue(back.isEmpty())
+        assertEquals(menuRoots(none).map { it.id }, top.map { it.id })
+        // A leaf in the path is not a level.
+        assertEquals(listOf("plate.edit", "plate.edit.split"), menuLevel(one, listOf("plate.edit", "plate.edit.split", "plate.edit.split.parts")).first)
+    }
+
     @Test fun idsAreUniqueAndScoped() {
         val all = mutableListOf<MenuNode>()
         fun walk(n: MenuNode) { all += n; n.children.forEach(::walk) }

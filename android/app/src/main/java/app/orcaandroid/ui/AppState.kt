@@ -341,6 +341,9 @@ data class ChromeState(
     val doubleBackToQuit: Boolean = false,
     /** Experimental setting "One place to edit shapes" (the focus room, docs/design/FOCUS-ROOM.md). */
     val focusRoom: Boolean = true,
+    /** Experimental setting "Edge menu" (docs/design/EDGE-MENU.md): no tool column, an edge panel instead; and its side. */
+    val edgeMenu: Boolean = false,
+    val edgeMenuLeft: Boolean = false,
     val coachDismissed: Boolean = true,
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */

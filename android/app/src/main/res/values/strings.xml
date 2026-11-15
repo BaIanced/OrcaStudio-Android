@@ -1376,4 +1376,10 @@
     <string name="menu_align">Align</string>
     <string name="menu_brush">Brush</string>
     <string name="menu_strength">Strength</string>
+    <string name="menu_snap">Snap</string>
+    <string name="menu_move_lock">Move along one axis</string>
+    <string name="edge_menu_title">Edge menu</string>
+    <string name="edge_menu_text">Tools in a menu at the screen edge and under a long press, instead of the button column.</string>
+    <string name="edge_menu_left">Edge menu on the left</string>
+    <string name="shortcut_add">Add to shortcuts</string>
 </resources>

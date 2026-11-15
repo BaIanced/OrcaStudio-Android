@@ -74,6 +74,8 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 themeSpec = settings.themeSpec,
                 doubleBackToQuit = settings.doubleBackToQuit,
                 focusRoom = settings.focusRoom,
+                edgeMenu = settings.edgeMenu,
+                edgeMenuLeft = settings.edgeMenuLeft,
                 coachDismissed = settings.coachDismissed,
                 interfaceSize = settings.interfaceSize,
                 showPlates = settings.showPlates,

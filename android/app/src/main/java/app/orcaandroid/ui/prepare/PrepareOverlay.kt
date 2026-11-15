@@ -155,8 +155,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     // The Build workspace edits the design's shapes: the plate tools would act on the whole object.
     if (state.buildObject != null) return
     val sliceOnGrip = sliceOnGrip(state, wide)
+    // Experimental edge menu (EdgePanel.kt): no tool column or row, the view buttons in the top bar.
+    val edge = state.chrome.edgeMenu
     // Tools in a column on the left: wide layouts always, portrait too by default.
-    val column = wide || state.chrome.toolsLeft
+    val column = !edge && (wide || state.chrome.toolsLeft)
     // Portrait with the switcher on the panel grip (AppScaffold): nothing of it over the 3D view.
     val onHandle = state.chrome.platesOnHandle && !wide
     val filmstrip = state.chrome.plates == PlateSwitcher.FILMSTRIP && state.workspace.tool == Tool.None && !onHandle && state.chrome.showPlates
@@ -166,10 +168,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
     var dragOffsetX by remember { mutableFloatStateOf(0f) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     val haptic = LocalHapticFeedback.current
+    // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
+    var bars by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     Box(Modifier.fillMaxSize().padding(8.dp).onSizeChanged { containerSize = it }) {
-        // Measured: the top bar moves below a camera hole it can't sit beside (CutoutRow).
-        var bars by remember { mutableStateOf(0.dp) }
-        val density = LocalDensity.current
         Column(Modifier.align(Alignment.TopStart).fillMaxWidth().onSizeChanged { bars = with(density) { it.height.toDp() } },
             verticalArrangement = Arrangement.spacedBy(6.dp)) {
             TopBar(state, vm, view, viewButtons = !column, onHandle = onHandle)
@@ -198,7 +200,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
                 ScrollCue(scroll, up = true, Modifier.align(Alignment.TopCenter))
                 ScrollCue(scroll, up = false, Modifier.align(Alignment.BottomCenter))
             }
-        } else if (state.workspace.focus == null) {
+        } else if (!edge && state.workspace.focus == null) {
             val defaultY = maxOf(0f, (containerSize.height - rowSize.height - with(density) { 64.dp.roundToPx() }).toFloat())
             val rowScroll = rememberScrollState()
             Row(
@@ -242,9 +244,10 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             }
         }
         // With the tool column the filmstrip shares the bottom row with the Slice button and takes the space it leaves.
-        val stripWithSlice = filmstrip && column
+        // So does the edge menu (no tool row to keep clear of), from the left edge.
+        val stripWithSlice = filmstrip && (column || edge)
         // On a narrow canvas (less than about two thumbnails left beside it) the strip gets its own row above.
-        if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 60.dp)) {
+        if (stripWithSlice) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = if (column) 60.dp else 0.dp)) {
             if (maxWidth >= 360.dp) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
                 PlateScale(state.chrome.plateScale) { Filmstrip(state, vm, view, Modifier.weight(1f)) }
                 if (!sliceOnGrip && !ViewDefaults.SLICE_FLOATING) SliceButton(state, vm, Modifier)
@@ -269,7 +272,7 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         if (!editing) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
-                   bottom = if (wide) 0.dp else if (column) 72.dp else 116.dp)) {
+                   bottom = if (wide) 0.dp else if (column || edge) 72.dp else 116.dp)) {
             ToolPanel(state, vm)
         }
         if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
@@ -286,6 +289,8 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         }
         ViewContextMenu(state, vm)
     }
+    // Outside the 8 dp inset: the handle sits on the view's edge. The panel starts below the top bar.
+    if (edge) EdgePanel(state, vm, view, top = bars + 14.dp)
     }
 }
 

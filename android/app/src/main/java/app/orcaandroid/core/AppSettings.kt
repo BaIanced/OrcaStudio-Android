@@ -189,6 +189,16 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("focus_room", true)
         set(value) = prefs.edit().putBoolean("focus_room", value).apply()
 
+    /** Experimental: tools in the edge menu and the hold menu instead of the button column (docs/design/EDGE-MENU.md). */
+    var edgeMenu: Boolean
+        get() = prefs.getBoolean("edge_menu", false)
+        set(value) = prefs.edit().putBoolean("edge_menu", value).apply()
+
+    /** The edge menu's handle and panel on the left edge instead of the right. */
+    var edgeMenuLeft: Boolean
+        get() = prefs.getBoolean("edge_menu_left", false)
+        set(value) = prefs.edit().putBoolean("edge_menu_left", value).apply()
+
     /** The first-run "print in 3 taps" strip on Prepare was closed (or the first print was sent). */
     var coachDismissed: Boolean
         get() = prefs.getBoolean("coach_dismissed", false)

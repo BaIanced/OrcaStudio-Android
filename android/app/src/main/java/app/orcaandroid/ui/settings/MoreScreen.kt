@@ -221,6 +221,9 @@ fun MoreScreen(state: UiState, vm: AppViewModel) {
             Section(stringResource(R.string.experimental)) {
                 SwitchRow(stringResource(R.string.focus_room_title), state.chrome.focusRoom, onChange = vm::setFocusRoom)
                 Text(stringResource(R.string.focus_room_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SwitchRow(stringResource(R.string.edge_menu_title), state.chrome.edgeMenu, onChange = vm::setEdgeMenu)
+                Text(stringResource(R.string.edge_menu_text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (state.chrome.edgeMenu) SwitchRow(stringResource(R.string.edge_menu_left), state.chrome.edgeMenuLeft, onChange = vm::setEdgeMenuLeft)
             }
 
             Section(stringResource(R.string.about), summary = BuildConfig.VERSION_NAME) { About() }

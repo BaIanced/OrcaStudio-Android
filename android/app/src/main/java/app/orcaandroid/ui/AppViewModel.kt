@@ -510,6 +510,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(focusRoom = on)) }
     }
 
+    fun setEdgeMenu(on: Boolean) {
+        store.settings.edgeMenu = on
+        store.update { it.copy(chrome = it.chrome.copy(edgeMenu = on)) }
+    }
+
+    fun setEdgeMenuLeft(on: Boolean) {
+        store.settings.edgeMenuLeft = on
+        store.update { it.copy(chrome = it.chrome.copy(edgeMenuLeft = on)) }
+    }
+
     fun setAutoSlice(on: Boolean) {
         store.settings.autoSlice = on
         store.update { it.copy(slicing = it.slicing.copy(autoSlice = on)) }
