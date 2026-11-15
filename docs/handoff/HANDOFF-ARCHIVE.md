@@ -4531,3 +4531,6 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 - Redo across a discard: with Redo live, Edit shape, Shapes, Done -> mesh unchanged (12 tris), Redo still gives the holed design (no step added by the visit).
 - Seen again: false "10 mm below the bed" Fit check after the wrap (finding 4). Logged: ANSWERS 30, MASTER-PLAN T-055 [x], BASELINE "After batch 5", backlog rows.
 - 2026-11-15 T-080 Menu tree: ef66622, source + JVM-checked (MenuTreeTest 10/10; compile + full unit tests exit 0). Not wired to any UI yet.
+
+## 2026-11-15 T-081 edge panel (device-checked: debug build on the WSA VD)
+- ad9d0eb: setting `edge_menu` (+ `edge_menu_left`), `EdgePanel.kt` handle + drill-down panel on the T-080 tree; tap and slide-through ran Arrange and Object > Cut, Back closes, no tool column with the setting on; setting off = layout identical (4 dumps). Details + deviations: MASTER-PLAN T-081 tick. Untested: hover-open, back-swipe exclusion, phone.
