@@ -1028,13 +1028,16 @@ class ScadController(private val store: Store) {
      * Push / pull: the flat face of a MESH shape under a tap. [index] = the op whose cap was hit (its drag edits it) or -1
      * for a new [op] (d = 0). [outline] (outer loop, then holes) and [normal] (one file mm along the face's normal) are on
      * the plate, at the op's current cap, for the overlay; [copy] / [copies] say which copies the tap was on.
+     * [side]: the face is on a side of a top-level shape that is not a MESH (a box, a sketch's extrusion): the drag
+     * resizes that shape's box out of this side ([ShapeDesign.boxSide]); [op] then only carries the face and the distance dragged.
      */
     data class FacePick(val shapeId: Int, val index: Int, val op: app.orcaandroid.scad.FaceOp, val copy: Int, val copies: Map<Int, Int>,
-        val outline: List<List<Vec3>>, val normal: Vec3)
+        val outline: List<List<Vec3>>, val normal: Vec3, val side: Int? = null)
 
     /**
-     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or
-     * null (no hit, not a MESH, or a curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
+     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or on
+     * a side of a top-level shape's box (any other kind, from its rendered piece), or null (no hit, a group's child, or a
+     * curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
      */
     suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): FacePick? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
@@ -1045,7 +1048,20 @@ class ScadController(private val store: Store) {
         val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
         val path = d.hitAt(piece, p)
         val copies = path.toMap()
-        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } } ?: return null
+        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } }
+        if (s == null) {
+            // Not a MESH (a box, a sketch's extrusion, ...; r563: Push / pull did nothing on a new sketch): a flat face on a
+            // side of a top-level shape's box resizes that box. Its rendered piece is in the shape's own frame.
+            if (path.size != 1) return null
+            val file = st?.file ?: return null
+            val op = withContext(Dispatchers.IO) {
+                app.orcaandroid.scad.Stl.triangles(pieceFile(piece.scad, file))?.let { app.orcaandroid.scad.FaceOps.region(it, d.toPiece(piece, p)) }
+            } ?: return null
+            val side = d.boxSide(piece.shapeId, op) ?: return null
+            fun onPlate(f: D3) = app.orcaandroid.scad.BuildTransform.toPlate(inst, d.fromPiece(piece, f))
+            return FacePick(piece.shapeId, -1, op, hit.instance, copies, op.outline.map { l -> l.map { onPlate(op.at(it)) } },
+                onPlate(op.at(app.orcaandroid.scad.P2(0.0, 0.0), 1.0)) - onPlate(op.origin), side)
+        }
         val q = d.designToMesh(s.id, p, copies) ?: return null
         val index = app.orcaandroid.scad.FaceOps.capAt(s.faces, q)
         val op = s.faces.getOrNull(index) ?: withContext(Dispatchers.IO) {

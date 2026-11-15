@@ -164,6 +164,13 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** Push / pull: the arrow drag of [facePick] let go at distance [d] (file mm); the pick follows the face to its new cap. */
     fun pushPicked(d: Double) {
         val p = facePick.value ?: return
+        if (p.side != null) {
+            // A side of a shape's box (not a MESH): the box grows or shrinks out of it; the pick moves with the side.
+            val made = pushSide(p.shapeId, p.side, d - p.op.d) ?: return
+            val moved = p.normal * made.toFloat()
+            facePick.value = p.copy(op = p.op.copy(d = p.op.d + made), outline = p.outline.map { l -> l.map { it + moved } })
+            return
+        }
         val before = design?.find(p.shapeId)?.faces?.size ?: return
         pushFace(p.shapeId, p.index, p.op, d)
         val shift = p.normal * (d - p.op.d).toFloat()
@@ -181,6 +188,22 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val s = des.find(id)?.takeIf { it.kind == Shape.Kind.MESH } ?: return
         val faces = if (index in s.faces.indices) s.faces.mapIndexed { i, f -> if (i == index) f.copy(d = d) else f } else s.faces + op.copy(d = d)
         commit(held(des, des.withFaces(id, faces.filter { kotlin.math.abs(it.d) > 1e-9 }), id))
+    }
+
+    /**
+     * Push / pull on a shape that is not a MESH: box side [side] ([app.orcaandroid.scad.ShapeDesign.boxSide]) of shape [id]
+     * moved [delta] mm out (one undo step; a field bound to a slider changes the slider). Returns the move made, or null.
+     */
+    private fun pushSide(id: Int, side: Int, delta: Double): Double? {
+        val des = design ?: return null
+        val s = des.find(id) ?: return null
+        val (size, pos, made) = des.sidePushed(id, side, delta) ?: return null
+        if (kotlin.math.abs(made) < 1e-9) return null
+        var next = des
+        for ((name, now, to) in listOf(Triple("size", des.size(s), size), Triple("pos", des.pos(s), pos)))
+            for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        commit(held(des, next, id))
+        return made
     }
 
     /** Push / pull: MESH shape [id]'s face op [index] taken off (the Shape panel's "Face edits" list). */

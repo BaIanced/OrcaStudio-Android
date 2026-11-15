@@ -168,6 +168,44 @@ class FaceOpsTest {
         near(D3(5.0, 6.0, 22.0), top.meshToDesign(2, D3(20.0, 15.0, 0.0), mapOf(2 to 1))!!)
     }
 
+    /** Push / pull on a shape that is not a MESH: a face on a side of its box resizes it, the opposite side stays put. */
+    @Test
+    fun boxSidePush() {
+        val sq = listOf(listOf(p(-1.0, -1.0), p(1.0, -1.0), p(1.0, 1.0), p(-1.0, 1.0)))
+        fun face(origin: D3, n: D3) = FaceOp(origin, n, if (abs(n.x) > 0.5) D3(0.0, 1.0, 0.0) else D3(1.0, 0.0, 0.0), sq, 0.0)
+        val box = Shape(1, Shape.Kind.BOX, "B", D3(20.0, 10.0, 6.0), D3(5.0, 6.0, 7.0))
+        val plain = ShapeDesign(listOf(box), nextId = 2)
+        assertEquals(5, plain.boxSide(1, face(D3(3.0, 2.0, 6.0), D3(0.0, 0.0, 1.0))))
+        assertEquals(4, plain.boxSide(1, face(D3(3.0, 2.0, 0.0), D3(0.0, 0.0, -1.0))))
+        assertEquals(1, plain.boxSide(1, face(D3(10.0, 2.0, 3.0), D3(1.0, 0.0, 0.0))))
+        assertEquals(2, plain.boxSide(1, face(D3(1.0, -5.0, 3.0), D3(0.0, -1.0, 0.0))))
+        // A step inside the box, a slope, a MESH shape: no side.
+        assertNull(plain.boxSide(1, face(D3(3.0, 2.0, 3.0), D3(0.0, 0.0, 1.0))))
+        assertNull(plain.boxSide(1, face(D3(3.0, 2.0, 6.0), D3(0.0, 0.6, 0.8))))
+        assertNull(ShapeDesign(listOf(box.copy(kind = Shape.Kind.MESH)), nextId = 2).boxSide(1, face(D3(3.0, 2.0, 6.0), D3(0.0, 0.0, 1.0))))
+        for ((rot, mirror) in listOf(D3() to D3(), D3(10.0, 20.0, 30.0) to D3(1.0, 0.0, 0.0), D3(0.0, 90.0, 45.0) to D3(0.0, 0.0, 1.0))) {
+            val d0 = ShapeDesign(listOf(box.copy(rot = rot, mirror = mirror)), nextId = 2)
+            for (side in 0..5) for (delta in listOf(4.0, -2.0)) {
+                val axis = side / 2
+                val sign = if (side % 2 == 1) 1.0 else -1.0
+                val (size, pos, g) = d0.sidePushed(1, side, delta)!!
+                assertEquals(delta, g, 1e-9)
+                val d1 = d0.update(1) { it.copy(size = size, pos = pos) }
+                // The middle of a side in the box's own frame (x, y about the middle, z from 0), then in the design.
+                fun mid(d: ShapeDesign, sgn: Double): D3 {
+                    val sz = d.find(1)!!.size
+                    val l = if (axis == 2) D3(0.0, 0.0, if (sgn > 0) sz.z else 0.0) else D3().with(axis, sgn * sz[axis] / 2)
+                    return d.fromPiece(d.pieces().first(), l)
+                }
+                near(mid(d0, -sign), mid(d1, -sign), 1e-9)
+                val moved = mid(d1, sign) - mid(d0, sign)
+                assertEquals(abs(delta), kotlin.math.sqrt(FaceOp.dot(moved, moved)), 1e-9)
+            }
+        }
+        // It never shrinks below 0.5 mm.
+        assertEquals(-5.5, plain.sidePushed(1, 5, -100.0)!!.third, 1e-9)
+    }
+
     @Test
     fun binaryStl() {
         val tris = bracket
