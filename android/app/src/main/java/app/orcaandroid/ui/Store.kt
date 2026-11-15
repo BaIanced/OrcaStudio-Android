@@ -73,6 +73,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 dynamicColor = settings.dynamicColor,
                 themeSpec = settings.themeSpec,
                 doubleBackToQuit = settings.doubleBackToQuit,
+                focusRoom = settings.focusRoom,
                 coachDismissed = settings.coachDismissed,
                 interfaceSize = settings.interfaceSize,
                 showPlates = settings.showPlates,

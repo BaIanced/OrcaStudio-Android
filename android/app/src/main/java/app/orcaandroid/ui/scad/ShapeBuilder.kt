@@ -129,12 +129,14 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
     var topOf by remember { mutableStateOf<Int?>(null) }
     var pathOf by remember { mutableStateOf<Int?>(null) }
     val stl = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(sh::importMesh) }
+    // The Sketch chip (and the focus room's Sketch tool) ask for the drawing through the controller.
+    sh.sketchRequest?.let { id -> LaunchedEffect(id) { sketching = id; sh.sketchRequest = null } }
     sketching?.let { id ->
         val shape = d.find(id)
         if (shape == null) sketching = null
         else SketchEditor(shape.sketch ?: Sketch.START, shape.x(Shape.REVOLVE, 0.0) != 0.0, d.dims, shape.name,
             title = if (shape.path != null && shape.x(Shape.REVOLVE, 0.0) == 0.0) stringResource(R.string.sketch_title_profile) else null,
-            onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sketching = null })
+            onDone = { s, dims -> sh.setSketch(id, s, dims); sketching = null }, onCancel = { sh.cancelNewSketch(id); sketching = null })
     }
     topOf?.let { id ->
         val shape = d.find(id)
@@ -173,11 +175,21 @@ fun ShapesTab(s: ScadEditorState, vm: AppViewModel) {
             }
         }.verticalScroll(rememberScrollState()).padding(bottom = 16.dp),
     ) {
-        Text(stringResource(R.string.shape_add), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+        val room = vm.state.collectAsState().value.workspace.focus
+        room?.takeIf { it.wrapNote }?.let {
+            Text(stringResource(R.string.room_wrap_note), Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Push / pull is on (the room's tool or the Shape panel's chip): its card replaces the Add palette, so the switch
+        // shows at once (r562: with the palette up, nothing visible happened).
+        if (sh.faceMode) PushPullCard {
+            if (room != null) vm.setRoomTool(app.orcaandroid.ui.RoomTool.SHAPES) else sh.setPushPull(false)
+        }
+        if (!sh.faceMode) Text(stringResource(R.string.shape_add), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, top = 8.dp))
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        if (!sh.faceMode) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             PALETTE.forEach { k ->
-                AssistChip(onClick = { val id = sh.add(k); if (k == Shape.Kind.SKETCH) sketching = id; runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
+                AssistChip(onClick = { if (k == Shape.Kind.SKETCH) sh.addSketch() else sh.add(k); runCatching { focus.requestFocus() } }, label = { Text(stringResource(ShapeController.kindName(k))) },
                     leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(16.dp)) })
             }
             AssistChip(onClick = { stl.launch(arrayOf("model/stl", "application/sla", "application/vnd.ms-pki.stl", "application/octet-stream", "*/*")) },
@@ -467,6 +479,23 @@ private fun HoleFit(shape: Shape, vm: AppViewModel) {
         else -> null
     }
     if (hint != null) Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Push / pull is on: what to do (tap a flat face, drag its arrow) and the way back to adding shapes ([onDone]). */
+@Composable
+private fun PushPullCard(onDone: () -> Unit) {
+    androidx.compose.material3.Surface(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)) {
+        Row(Modifier.padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.shape_push_pull), style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(stringResource(R.string.shape_push_pull_hint), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+            androidx.compose.material3.TextButton(onClick = onDone) { Text(stringResource(R.string.room_tool_shapes)) }
+        }
+    }
 }
 
 /** Push / pull on a MESH shape: the mode switch (a tap in the main view picks a flat face) and the face edits made so far. */

@@ -313,7 +313,8 @@ class MainActivity : ComponentActivity() {
         fun paint(kind: String, state: Int) = if (single) vm.scene.openPaint(kind, state) else null
         when (keyCode) {
             KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DEL -> if (any) vm.scene.deleteSelected() else return false
-            KeyEvent.KEYCODE_ESCAPE -> if (s.workspace.tool != Tool.None || any || s.workspace.selectMode) {
+            KeyEvent.KEYCODE_ESCAPE -> if (s.workspace.focus != null) vm.closeRoom()
+            else if (s.workspace.tool != Tool.None || any || s.workspace.selectMode) {
                 vm.scene.setTool(Tool.None); vm.scene.select(null); vm.scene.setSelectMode(false)
             } else return false
             KeyEvent.KEYCODE_A -> vm.scene.arrange(allPlates = !event.isShiftPressed)

@@ -1,15 +1,20 @@
 package app.orcaandroid.ui
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.orcaandroid.CrashReport
+import app.orcaandroid.R
 import app.orcaandroid.ai.McpServer
 import app.orcaandroid.ai.McpTools
 import app.orcaandroid.core.AI_TOOLS_PORT
 import app.orcaandroid.core.ThemeMode
 import app.orcaandroid.core.Translator
+import app.orcaandroid.scad.ScadDesign
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,6 +54,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     init {
         device.files = files
         files.scad = scad
+        scene.freezeObject = ::freezeObject
         viewModelScope.launch {
             runCatching { start() }
                 .onFailure { e -> store.update { it.copy(chrome = it.chrome.copy(phase = Phase.SETUP, error = e.message ?: e.toString())) } }
@@ -62,10 +68,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 s?.nozzleDiameter?.let(presets::recordNozzle)
             }
         }
-        // The Build workspace's object, for the engine's per-volume selection ids.
+        // The Build workspace's object, for the engine's per-volume selection ids; the focus room's mesh tools use it too (isolate view).
         viewModelScope.launch {
-            store.state.map { it.buildObject }.distinctUntilChanged().collect { scad.showBuild(it) }
+            store.state.map { it.isolated }.distinctUntilChanged().collect { scad.showBuild(it) }
         }
+        watchRoom()
         viewModelScope.launch {
             val report = withContext(Dispatchers.IO) { runCatching { CrashReport.pending(store.app) }.getOrNull() }
             if (report != null) store.update { it.copy(chrome = it.chrome.copy(crashReport = report)) }
@@ -117,10 +124,215 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(coachDismissed = true)) }
     }
 
-    fun setScreen(screen: Screen) = store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
+    fun setScreen(screen: Screen) {
+        if (screen != Screen.PREPARE && state.value.workspace.focus != null) closeRoom()
+        store.update { it.copy(workspace = it.workspace.copy(tool = toolAfterScreenChange(it.chrome.screen, screen, it.workspace.tool)), chrome = it.chrome.copy(screen = screen)) }
+    }
+
+    // --- Focus room (docs/design/FOCUS-ROOM.md) ---------------------------------------------------------------------
+
+    /** An entry's roomBegin is on its way: a second tap does not open the room twice. */
+    private var roomOpening = false
+
+    /**
+     * "Edit shape": the engine's roomBegin first (the visit becomes one plate step), then the room on object [obj] with the
+     * default tool, which today's calls open (the builder for a design, Push / pull for a mesh).
+     */
+    fun openRoom(obj: Int) {
+        val s = state.value
+        if (!s.chrome.focusRoom || s.workspace.focus != null || roomOpening) return
+        val o = s.workspace.scene.objects.getOrNull(obj)?.takeIf(::hasRoom) ?: return
+        val kind = roomKind(o)
+        roomOpening = true
+        store.launch {
+            try {
+                store.applyScene(store.engine.roomBegin(), dirty = false)
+            } finally {
+                roomOpening = false
+            }
+            store.update { st ->
+                st.copy(workspace = st.workspace.copy(
+                    focus = FocusRoom(obj, o.name, defaultRoomTool(kind), wrapOnly = kind == RoomKind.MESH),
+                    selection = st.workspace.selection?.takeIf { it.obj == obj }?.copy(volume = -1) ?: Selection(obj),
+                    multiSelection = emptyList(), contextMenu = null))
+            }
+            when (kind) {
+                RoomKind.DESIGN -> scad.editObject(obj)
+                RoomKind.MESH -> scene.setTool(Tool.MeshEdit(kind = "face"))
+            }
+        }
+    }
+
+    /** "+ > Make a part": roomBegin, then a new design as today, inside a room that adopts its object once the first shape is on the plate. */
+    fun makePart() {
+        if (state.value.workspace.focus != null || roomOpening) return
+        roomOpening = true
+        store.launch {
+            try {
+                store.applyScene(store.engine.roomBegin(), dirty = false)
+            } finally {
+                roomOpening = false
+            }
+            store.update { st ->
+                // No object of the plate stays selected: the room has none until its first shape is placed (watchRoom).
+                st.copy(workspace = st.workspace.copy(focus = FocusRoom(-1, store.str(R.string.shape_new_name), RoomTool.SHAPES, created = true),
+                    tool = Tool.None, contextMenu = null, selection = null, multiSelection = emptyList()))
+            }
+            scad.newShapes()
+        }
+    }
+
+    /**
+     * Done, the room's one exit (the strip's button, Back, Esc, a switch to another screen): lets the builder's pending render
+     * land and closes the builder if open, drops the tool, then roomEnd (the visit is one plate step), and leaves the object
+     * selected. Always keeps the work.
+     */
+    fun closeRoom(): Job = store.launch {
+        if (state.value.workspace.focus == null) return@launch
+        if (state.value.design.scad != null) {
+            scad.awaitIdle()
+            scad.close()?.join()
+        }
+        scene.setTool(Tool.None).join()
+        scad.awaitIdle()
+        // A visit that only wrapped a mesh (still a plain wrap) leaves nothing: the mesh as at entry, no plate step.
+        val focus = state.value.workspace.focus
+        val plain = ScadDesign.of(state.value.workspace.scene.objects.getOrNull(focus?.obj ?: -1))?.shapes?.isPlainWrap() == true
+        val discard = focus?.leavesNothing(plain) == true
+        try {
+            store.applyScene(store.engine.roomEnd(discard), dirty = false)
+        } finally {
+            store.update { it.copy(workspace = it.workspace.copy(focus = null)) }
+        }
+    }
+
+    /** A room tool switch is on its way (conversions take a moment): taps on the toolbar meanwhile are ignored; the toolbar shows a busy bar. */
+    var roomRouting by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    /** Section 5's routing table: the toolbar's tap on [tool]. A tool of the other family converts the object first. */
+    fun setRoomTool(tool: RoomTool) {
+        if (state.value.workspace.focus == null || roomRouting) return
+        roomRouting = true
+        store.launch {
+            try {
+                routeRoomTool(tool, confirmed = false)
+            } finally {
+                roomRouting = false
+            }
+        }
+    }
+
+    private suspend fun routeRoomTool(tool: RoomTool, confirmed: Boolean) {
+        val f = state.value.workspace.focus ?: return
+        val obj = store.value.workspace.scene.objects.getOrNull(f.obj)
+        // A visit that has no object on the plate yet is a design in the builder.
+        val design = f.obj < 0 || roomKind(obj) == RoomKind.DESIGN
+        var wrapped = false
+        // Steps already made in this visit (Undo is live above the floor): the visit is then more than a wrap.
+        val dirtyBeforeWrap = store.value.workspace.scene.canUndo
+        when (tool) {
+            RoomTool.SHAPES, RoomTool.SKETCH, RoomTool.PUSH_PULL ->
+                if (tool == RoomTool.PUSH_PULL && !design) scene.setTool(Tool.MeshEdit(kind = "face")).join()
+                else {
+                    if (!design) {
+                        // Wrap (mesh -> design): lossless, no question; the builder's own history starts here.
+                        scene.setTool(Tool.None).join()
+                        scad.editMesh(f.obj).join()
+                        if (roomKind(store.value.workspace.scene.objects.getOrNull(f.obj)) != RoomKind.DESIGN) return
+                        store.applyScene(store.engine.roomFloor(), dirty = false)
+                        wrapped = true
+                    } else if (state.value.design.scad == null && f.obj >= 0) scad.editObject(f.obj).join()
+                    shapes.setPushPull(tool == RoomTool.PUSH_PULL)
+                    if (tool == RoomTool.SKETCH) shapes.addSketch()
+                }
+            RoomTool.RESHAPE, RoomTool.MESH_EDIT -> {
+                if (f.obj < 0 || obj == null) return
+                if (design) {
+                    // Freeze (design -> mesh) is the one conversion that loses something: ask first, once per freeze.
+                    if (!confirmed && ScadDesign.of(obj)?.shapes?.isPlainWrap() != true) {
+                        store.update { it.copy(workspace = it.workspace.copy(freezeAsk = FreezeAsk(f.obj, obj.name, room = tool))) }
+                        return
+                    }
+                    freezeObject(f.obj)
+                }
+                if (tool == RoomTool.RESHAPE) scene.openReshape().join() else scene.setTool(Tool.MeshEdit()).join()
+            }
+        }
+        store.update { st ->
+            val cur = st.workspace.focus ?: return@update st
+            st.copy(workspace = st.workspace.copy(focus = cur.copy(tool = tool,
+                wrapNote = wrapped && !cur.wrapNoted, wrapNoted = cur.wrapNoted || wrapped,
+                wrapped = cur.wrapped || wrapped, wrapOnly = cur.wrapOnly && !(wrapped && dirtyBeforeWrap))))
+        }
+    }
+
+    /**
+     * Design -> mesh: closes the builder (its last render first) and clears the design tag as one undoable plate step; in a
+     * room the plate history then starts here ([roomFloor]).
+     */
+    private suspend fun freezeObject(obj: Int) {
+        if (state.value.design.scad != null) {
+            scad.awaitIdle()
+            scad.close()?.join()
+        }
+        store.applyScene(store.engine.setObjectModule(obj, "", undo = true))
+        if (state.value.workspace.focus != null) {
+            // A freeze is a change of the visit: it no longer ends as "nothing happened".
+            store.update { it.copy(workspace = it.workspace.copy(focus = it.workspace.focus?.copy(wrapOnly = false))) }
+            store.applyScene(store.engine.roomFloor(), dirty = false)
+        }
+    }
+
+    /** "Keep as a fixed shape": freezes the object and opens the tool that was asked for. */
+    fun confirmFreeze() {
+        val ask = state.value.workspace.freezeAsk ?: return
+        store.update { it.copy(workspace = it.workspace.copy(freezeAsk = null)) }
+        roomRouting = true
+        store.launch {
+            try {
+                if (ask.room != null) routeRoomTool(ask.room, confirmed = true)
+                else {
+                    freezeObject(ask.obj)
+                    ask.tool?.let { scene.setTool(it).join() }
+                }
+            } finally {
+                roomRouting = false
+            }
+        }
+    }
+
+    /** Cancel: the tool stays as it was. */
+    fun cancelFreeze() = store.update { it.copy(workspace = it.workspace.copy(freezeAsk = null)) }
+
+    /** The room follows its object: a scene whose object has another name (or none) closes it; a made part is adopted once it is on the plate. */
+    private fun watchRoom() {
+        viewModelScope.launch {
+            store.state.map { s ->
+                s.workspace.focus?.let { f ->
+                    when {
+                        roomGone(f, s.workspace.scene.objects) -> f to ROOM_GONE
+                        f.created && f.obj < 0 -> s.buildObject?.let { f to it }
+                        else -> null
+                    }
+                }
+            }.distinctUntilChanged().collect { m ->
+                val (f, obj) = m ?: return@collect
+                if (obj == ROOM_GONE) closeRoom()
+                else store.update { s ->
+                    if (s.workspace.focus != f) s
+                    else s.copy(workspace = s.workspace.copy(focus = f.copy(obj = obj, name = s.workspace.scene.objects.getOrNull(obj)?.name ?: f.name),
+                        selection = Selection(obj), multiSelection = emptyList()))
+                }
+            }
+        }
+    }
 
     /** Shows [url] in the Models tab's browser. */
-    fun openInModels(url: String) = store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+    fun openInModels(url: String) {
+        if (state.value.workspace.focus != null) closeRoom()
+        store.update { it.copy(workspace = it.workspace.copy(tool = Tool.None), chrome = it.chrome.copy(modelsUrl = url, screen = Screen.MODELS)) }
+    }
 
     fun modelsUrlOpened() = store.update { it.copy(chrome = it.chrome.copy(modelsUrl = null)) }
 
@@ -293,6 +505,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(doubleBackToQuit = on)) }
     }
 
+    fun setFocusRoom(on: Boolean) {
+        store.settings.focusRoom = on
+        store.update { it.copy(chrome = it.chrome.copy(focusRoom = on)) }
+    }
+
     fun setAutoSlice(on: Boolean) {
         store.settings.autoSlice = on
         store.update { it.copy(slicing = it.slicing.copy(autoSlice = on)) }
@@ -454,3 +671,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toast(message: String) = store.toast(message)
     fun showError(message: String) = store.update { it.copy(chrome = it.chrome.copy(error = message)) }
 }
+
+/** [AppViewModel.watchRoom]: the room's object is gone. */
+private const val ROOM_GONE = -2

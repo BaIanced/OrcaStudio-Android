@@ -132,9 +132,22 @@ class ScadController(private val store: Store) {
     /**
      * Opens the editor on the saved draft (or the first example). A [newDesign] (not an object's own design)
      * moves to an empty plate when the draft isn't on the plate yet.
+     *
+     * [draft] false: the caller loads its own design right after (an object's design, a mesh, a new or opened file), so
+     * the draft only opens the editor: no plate link, no shapes, no render. Rendering it would place the old draft on the
+     * plate once its object is gone (or put its mesh into an object of the same name) when the caller's load comes later
+     * than the render delay, e.g. a large mesh being wrapped.
      */
-    fun open(newDesign: Boolean = true) = store.launch {
+    fun open(newDesign: Boolean = true, draft: Boolean = true) = store.launch {
         if (st != null) return@launch
+        if (!draft) {
+            val auto = withContext(Dispatchers.IO) { runCatching { JSONObject(draftMeta.readText()).optBoolean("autoRender", true) }.getOrDefault(true) }
+            store.update {
+                it.copy(design = it.design.copy(scad = ScadEditorState(name = ScadExamples.BOX.file, file = draftFile.path, source = "", autoRender = auto)),
+                    chrome = it.chrome.copy(screen = Screen.PREPARE))
+            }
+            return@launch
+        }
         val (source, meta) = withContext(Dispatchers.IO) {
             (draftFile.takeIf { it.isFile }?.readText() ?: ScadExamples.BOX.source) to
                 runCatching { JSONObject(draftMeta.readText()) }.getOrNull()
@@ -197,7 +210,7 @@ class ScadController(private val store: Store) {
     /** Opens a .scad file (from the file picker, a download or a model site's zip). */
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
-        if (st == null) open().join()
+        if (st == null) open(draft = false).join()
         store.update { it.copy(design = it.design.copy(scadHidden = false)) }
         // A shape-builder design saved by [save] reopens in the builder; if its code was edited since, it opens as
         // code without the (stale) shapes line.
@@ -216,7 +229,7 @@ class ScadController(private val store: Store) {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
         showPlateOf(obj)
-        if (st == null) open(newDesign = false).join()
+        if (st == null) open(newDesign = false, draft = false).join()
         // A design with its own include files gets them back in a folder of its own.
         val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
@@ -239,7 +252,7 @@ class ScadController(private val store: Store) {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
         showPlateOf(obj)
-        if (st == null) open(newDesign = false).join()
+        if (st == null) open(newDesign = false, draft = false).join()
         val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
         val shapes = try {
             val volumes = engine.exportVolumes(index, tmp.path)
@@ -267,7 +280,10 @@ class ScadController(private val store: Store) {
         if (shapes.none { !it.hole }) { store.toast(store.str(R.string.shape_import_failed)); return@launch }
         val d = ShapeDesign(shapes, nextId = shapes.size + 1)
         val name = obj.name.substringBeforeLast('.') + ".scad"
-        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode()))
+        // In the focus room the wrap is a plate step of its own: the room's entry snapshot is then the untagged mesh (without
+        // it the first render's step snapshots the tagged object and Undo / a discarding roomEnd would keep the design).
+        store.applyScene(engine.setObjectModule(index, ScadDesign(name, d.toScad(), emptyMap(), shapes = d, pieces = true).encode(),
+            undo = store.value.workspace.focus != null))
         load(name, draftFile.path, d.toScad(), onPlate = obj.name, shapes = d)
     }
 
@@ -278,13 +294,14 @@ class ScadController(private val store: Store) {
 
     /** A new design built from shapes (no code). */
     fun newShapes() = store.launch {
-        if (st == null) open().join()
+        if (st == null) open(draft = false).join()
         val d = ShapeDesign()
         load(store.str(R.string.shape_new_name), draftFile.path, d.toScad(), shapes = d)
     }
 
     private fun load(name: String, file: String, source: String, values: Map<String, Any> = emptyMap(), onPlate: String? = null,
                      shapes: ShapeDesign? = null) {
+        buildHeld = false
         set { it.copy(name = name, file = file, source = source, loadId = it.loadId + 1, values = values,
             params = emptyList(), log = "", status = null, onPlate = onPlate, preview = null, shapes = shapes, selected = emptyList()) }
         refreshParams(0)
@@ -294,7 +311,9 @@ class ScadController(private val store: Store) {
         if (!buildIfShapes()) preview()
     }
 
-    fun close() {
+    /** Closes the builder. Returns the job that removes the plate added for the design, if there is one (the focus room waits for it). */
+    fun close(): Job? {
+        buildHeld = false
         renderJob?.cancel()
         previewDelay?.cancel()
         previewJob?.cancel()
@@ -303,15 +322,14 @@ class ScadController(private val store: Store) {
         store.update { it.copy(design = it.design.copy(scad = null, scadOnPlate = false)) }
         client.release()
         // The plate added for the design goes again if nothing was placed on it.
-        addedPlate?.let { plate ->
-            addedPlate = null
-            store.launch {
-                val s = store.value.workspace.scene
-                if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
-                val scene = engine.deletePlates(listOf(plate))
-                store.applyScene(scene)
-                store.update { it.copy(workspace = it.workspace.copy(activePlate = (if (it.workspace.activePlate > plate) it.workspace.activePlate - 1 else it.workspace.activePlate).coerceIn(0, scene.plates.lastIndex))) }
-            }
+        val plate = addedPlate ?: return null
+        addedPlate = null
+        return store.launch {
+            val s = store.value.workspace.scene
+            if (s.plates.size < 2 || plate !in s.plates.indices || !s.plateEmpty(plate)) return@launch
+            val scene = engine.deletePlates(listOf(plate))
+            store.applyScene(scene)
+            store.update { it.copy(workspace = it.workspace.copy(activePlate = (if (it.workspace.activePlate > plate) it.workspace.activePlate - 1 else it.workspace.activePlate).coerceIn(0, scene.plates.lastIndex))) }
         }
     }
 
@@ -943,8 +961,25 @@ class ScadController(private val store: Store) {
         if (o < 0 && st?.shapes != null && !store.value.design.scadOnPlate) preview()
     }
 
+    /**
+     * A sketch shape was just added and its drawing is still open ([ShapeController.addSketch]): edits stay off the plate,
+     * so its placeholder outline never shows as a stray piece. Released when the drawing is done or dropped.
+     */
+    private var buildHeld = false
+
+    /** [on]: edits stop going to the plate (a queued one is dropped). Off: the plate catches up once, if the design differs from it. */
+    fun holdBuild(on: Boolean) {
+        if (buildHeld == on) return
+        buildHeld = on
+        if (on) { previewDelay?.cancel(); renderAgain = false; return }
+        val o = store.value.buildObject
+        if (o != null) { if (ScadDesign.of(store.value.workspace.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild() }
+        else if (store.value.design.scadOnPlate) placeShapes()
+    }
+
     /** Build workspace: an edit goes straight to the object's pieces (no whole-design preview); one during a render queues the next. */
     private fun pushBuild() {
+        if (buildHeld) return
         previewDelay?.cancel()
         previewDelay = store.scope.launch {
             delay(if (dragging) DRAG_DEBOUNCE else 150)
@@ -993,13 +1028,16 @@ class ScadController(private val store: Store) {
      * Push / pull: the flat face of a MESH shape under a tap. [index] = the op whose cap was hit (its drag edits it) or -1
      * for a new [op] (d = 0). [outline] (outer loop, then holes) and [normal] (one file mm along the face's normal) are on
      * the plate, at the op's current cap, for the overlay; [copy] / [copies] say which copies the tap was on.
+     * [side]: the face is on a side of a top-level shape that is not a MESH (a box, a sketch's extrusion): the drag
+     * resizes that shape's box out of this side ([ShapeDesign.boxSide]); [op] then only carries the face and the distance dragged.
      */
     data class FacePick(val shapeId: Int, val index: Int, val op: app.orcaandroid.scad.FaceOp, val copy: Int, val copies: Map<Int, Int>,
-        val outline: List<List<Vec3>>, val normal: Vec3)
+        val outline: List<List<Vec3>>, val normal: Vec3, val side: Int? = null)
 
     /**
-     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or
-     * null (no hit, not a MESH, or a curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
+     * Build workspace: the flat face under the ray on build object [obj]'s MESH shapes (the innermost on the hit path), or on
+     * a side of a top-level shape's box (any other kind, from its rendered piece), or null (no hit, a group's child, or a
+     * curved spot / a cut wall that isn't in the model file). Reads the file off the main thread.
      */
     suspend fun faceAt(obj: Int, origin: Vec3, dir: Vec3): FacePick? {
         val hit = engine.pick(origin, dir, only = obj) ?: return null
@@ -1010,7 +1048,20 @@ class ScadController(private val store: Store) {
         val p = app.orcaandroid.scad.BuildTransform.toDesign(inst, hit.point)
         val path = d.hitAt(piece, p)
         val copies = path.toMap()
-        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } } ?: return null
+        val s = path.asReversed().firstNotNullOfOrNull { (id, _) -> d.find(id)?.takeIf { it.kind == Shape.Kind.MESH } }
+        if (s == null) {
+            // Not a MESH (a box, a sketch's extrusion, ...; r563: Push / pull did nothing on a new sketch): a flat face on a
+            // side of a top-level shape's box resizes that box. Its rendered piece is in the shape's own frame.
+            if (path.size != 1) return null
+            val file = st?.file ?: return null
+            val op = withContext(Dispatchers.IO) {
+                app.orcaandroid.scad.Stl.triangles(pieceFile(piece.scad, file))?.let { app.orcaandroid.scad.FaceOps.region(it, d.toPiece(piece, p)) }
+            } ?: return null
+            val side = d.boxSide(piece.shapeId, op) ?: return null
+            fun onPlate(f: D3) = app.orcaandroid.scad.BuildTransform.toPlate(inst, d.fromPiece(piece, f))
+            return FacePick(piece.shapeId, -1, op, hit.instance, copies, op.outline.map { l -> l.map { onPlate(op.at(it)) } },
+                onPlate(op.at(app.orcaandroid.scad.P2(0.0, 0.0), 1.0)) - onPlate(op.origin), side)
+        }
         val q = d.designToMesh(s.id, p, copies) ?: return null
         val index = app.orcaandroid.scad.FaceOps.capAt(s.faces, q)
         val op = s.faces.getOrNull(index) ?: withContext(Dispatchers.IO) {

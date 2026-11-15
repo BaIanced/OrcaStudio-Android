@@ -192,7 +192,7 @@ class McpTools(private val store: Store, private val scad: ScadController, priva
             "painting is removed). $PLATE_EDIT",
             obj(listOf("object", "wall"), *COPY, "wall" to p("number", "Wall thickness in mm, 0.8..10"))) { hollow(it) },
         Tool("object_sculpt", "Plate edit: sculpts the surface hit by a ray (brush dabs on the mesh; refined first when too coarse for the brush; " +
-            "painting is removed on the first refine). Repeat dabs with `dabs`. $PLATE_EDIT",
+            "paint is kept: a refine carries it onto the new triangles). Repeat dabs with `dabs`. $PLATE_EDIT",
             obj(listOf("origin", "dir", "brush"), "origin" to vec("Ray origin in plate coordinates"), "dir" to vec("Ray direction"),
                 "brush" to p("string", "draw, inflate, smooth, flatten, pinch, crease or grab"), "radius" to p("number", "Brush radius in mm; default 5"),
                 "strength" to p("number", "0..1; default 0.5"), "invert" to p("boolean", "Dent instead of bulge"), "mirror" to p("string", "Symmetry: also dab across the part's own middle planes, e.g. x or xz"), "dabs" to p("integer", "Repeat count 1..50; default 1 (one stroke: draw, inflate and crease do not build up within it)"))) { sculpt(it) },

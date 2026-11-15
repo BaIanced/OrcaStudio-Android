@@ -172,6 +172,8 @@ private fun MainLayout(state: UiState, vm: AppViewModel) {
     var lastBack by remember { mutableLongStateOf(0L) }
     androidx.activity.compose.BackHandler {
         when {
+            // The focus room's one exit is Done; Back does the same (the sketch editor takes Back first, in its own handler).
+            state.workspace.focus != null && state.chrome.screen == Screen.PREPARE -> vm.closeRoom()
             state.design.scad != null && state.chrome.screen == Screen.PREPARE -> if (state.design.scadOnPlate && state.design.scad.shapes == null) vm.setScadOnPlate(false) else vm.scad.close()
             state.chrome.screen != Screen.PREPARE -> vm.setScreen(Screen.PREPARE)
             state.inPaintShop -> vm.scene.setTool(Tool.None)
@@ -318,6 +320,8 @@ private fun Workspace(state: UiState, vm: AppViewModel, wide: Boolean) {
     val shop = state.inPaintShop
     Column(Modifier.fillMaxSize()) {
         if (room != null) app.orcaandroid.ui.prepare.RoomBar(room, state, vm, plateView)
+        if (state.workspace.focus != null && state.chrome.screen == Screen.PREPARE) app.orcaandroid.ui.prepare.RoomToolbar(state, vm)
+        app.orcaandroid.ui.prepare.FreezeDialog(state, vm)
         Box(Modifier.weight(1f).fillMaxWidth()) { WorkspaceBody(state, vm, wide, shop, viewport, plateView) }
     }
 }

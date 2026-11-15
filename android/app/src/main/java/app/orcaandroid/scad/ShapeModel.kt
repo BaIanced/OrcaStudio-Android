@@ -230,6 +230,23 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
 
     fun encode(): String = json().toString()
 
+    /**
+     * Still the lossless wrap [ScadController.editMesh] made of a plain mesh object: every shape a top-level MESH shape that
+     * stands where its volume stood (the position and size the file's bounds give), unturned, unmirrored, with no repeat,
+     * binding or push / pull, and no shape added in the builder (a hole shape of another kind, a group). Freezing such a
+     * design back to a mesh loses nothing, so the room does not ask first (docs/design/FOCUS-ROOM.md section 5).
+     */
+    fun isPlainWrap(): Boolean = shapes.isNotEmpty() && shapes.all { s ->
+        val b = Shape.MESH_BOUNDS.map { s.extra[it] }
+        if (s.kind != Shape.Kind.MESH || s.children.isNotEmpty() || s.repeat != null || s.faces.isNotEmpty() || s.bind.isNotEmpty() ||
+            s.rot != D3() || s.mirror != D3() || b.any { it == null }) return@all false
+        val v = b.map { it!! }
+        val x0 = v[0]; val y0 = v[1]; val z0 = v[2]; val x1 = v[3]; val y1 = v[4]; val z1 = v[5]
+        fun near(a: Double, c: Double) = abs(a - c) < 0.005
+        near(s.size.x, max(0.01, x1 - x0)) && near(s.size.y, max(0.01, y1 - y0)) && near(s.size.z, max(0.01, z1 - z0)) &&
+            near(s.pos.x, (x0 + x1) / 2) && near(s.pos.y, (y0 + y1) / 2) && near(s.pos.z, z0)
+    }
+
     fun find(id: Int): Shape? = shapes.asSequence().flatMap { it.all() }.firstOrNull { it.id == id }
 
     /** The groups that hold [id], outermost first, then the shape itself; empty when there is none. */
@@ -669,6 +686,48 @@ data class ShapeDesign(val shapes: List<Shape> = emptyList(), val dims: List<Dim
         val s = find(id)?.let(::resolved) ?: return null
         val c = copies(s).let { it.getOrNull(copy[id] ?: 0) ?: it.first() }
         return transform(parentFrame(id, copy), transform(c, meshToParent(s, p)))
+    }
+
+    /** Design point [p] in [piece]'s own frame: the frame its rendered mesh is in (its shape's box, before the placement). */
+    fun toPiece(piece: Piece, p: D3): D3 = inverse(piece.matrix.toDoubleArray(), p)
+
+    /** The inverse of [toPiece]. */
+    fun fromPiece(piece: Piece, l: D3): D3 = transform(piece.matrix.toDoubleArray(), l)
+
+    /**
+     * Push / pull on a top-level shape that is not a MESH (a box, a sketch's extrusion, ...): the side of shape [id]'s box
+     * that flat face [op] (in the shape's own frame, [toPiece]) lies on, as axis * 2 + 1 for the + side (+ 0 for the - side),
+     * or null when the face is not on a side of the box (a slope, a step) or [id] is a group or a MESH.
+     */
+    fun boxSide(id: Int, op: FaceOp, tol: Double = 0.05): Int? {
+        val s = shapes.firstOrNull { it.id == id }?.takeIf { !it.isGroup && it.kind != Shape.Kind.MESH } ?: return null
+        val sz = size(s)
+        val axis = (0..2).firstOrNull { abs(abs(op.normal[it]) - 1.0) < 1e-3 } ?: return null
+        val plus = op.normal[axis] > 0
+        // The box: x and y about the middle, z from 0 (the bottom) up ([hitAt] uses the same).
+        val bound = if (axis == 2) (if (plus) sz.z else 0.0) else (if (plus) 0.5 else -0.5) * sz[axis]
+        return if (abs(op.origin[axis] - bound) < tol) axis * 2 + (if (plus) 1 else 0) else null
+    }
+
+    /**
+     * Push / pull on box side [side] ([boxSide]) of top-level shape [id]: the box grows [delta] mm out of that side (shrinks
+     * when < 0, down to 0.5 mm) and the opposite side stays where it is (turned and flipped too). The new size and pos, and
+     * the growth made; null when [id] is gone.
+     */
+    fun sidePushed(id: Int, side: Int, delta: Double): Triple<D3, D3, Double>? {
+        val s = shapes.firstOrNull { it.id == id }?.let(::resolved) ?: return null
+        val axis = side / 2
+        val plus = side % 2 == 1
+        val g = max(delta, 0.5 - s.size[axis])
+        val size = s.size.with(axis, s.size[axis] + g)
+        fun turned(v: D3) = rotate(flip(v, s.mirror), s.rot)
+        val pos = if (axis < 2) s.pos + turned(D3().with(axis, if (plus) g / 2 else -g / 2))
+        else {
+            // The shape turns about its middle (half its height): solve pos so the side that stays doesn't move.
+            val c = D3(0.0, 0.0, -g / 2)
+            if (plus) s.pos + c - turned(c) else s.pos + c + turned(c)
+        }
+        return Triple(size, pos, g)
     }
 
     /** Point [p] through row-major 4 x 4 [m]. */

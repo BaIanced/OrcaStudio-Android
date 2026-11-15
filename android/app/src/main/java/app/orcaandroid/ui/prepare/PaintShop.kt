@@ -32,6 +32,8 @@ internal val UiState.inPaintShop get() = chrome.screen == Screen.PREPARE && work
  */
 internal val UiState.room: Room? get() = when {
     chrome.screen != Screen.PREPARE -> null
+    // The focus room is Make for the whole visit, so the strip colour does not change with the tool.
+    workspace.focus != null -> Room.MAKE
     inPaintShop -> Room.PAINT
     design.scad != null -> Room.MAKE
     else -> when (workspace.tool) {
@@ -48,8 +50,10 @@ internal val UiState.room: Room? get() = when {
  */
 @Composable
 internal fun RoomBar(room: Room, state: UiState, vm: AppViewModel, view: PlateView?) {
-    val make = room == Room.MAKE
-    val name = (if (make) state.design.scad?.name else state.workspace.selectedItems.firstOrNull()
+    val focus = state.workspace.focus
+    // The builder's stack drives Undo / Redo while the builder is open; in the focus room a mesh tool uses the plate's.
+    val make = room == Room.MAKE && (focus == null || state.design.scad != null)
+    val name = (if (focus != null) focus.name else if (make) state.design.scad?.name else state.workspace.selectedItems.firstOrNull()
         ?.let { state.workspace.scene.objects.getOrNull(it.obj)?.name })?.takeIf { it.isNotBlank() }
         ?: state.workspace.projectName?.takeIf { it.isNotBlank() } ?: stringResource(room.label)
     ModeStrip(room, name,
@@ -57,7 +61,7 @@ internal fun RoomBar(room: Room, state: UiState, vm: AppViewModel, view: PlateVi
         canRedo = if (make) vm.shapes.canRedo else state.workspace.scene.canRedo,
         onUndo = { if (make) vm.shapes.undo() else vm.scene.undo() },
         onRedo = { if (make) vm.shapes.redo() else vm.scene.redo() },
-        onDone = { if (make) vm.scad.close() else vm.scene.setTool(Tool.None) },
+        onDone = { if (focus != null) vm.closeRoom() else if (make) vm.scad.close() else vm.scene.setTool(Tool.None) },
         actions = { if (room == Room.PAINT) ViewButtons(state, vm, view, rail = false, undoRedo = false) })
 }
 

@@ -17,6 +17,7 @@ import app.orcaandroid.core.Scene
 import app.orcaandroid.core.Vec3
 import app.orcaandroid.render.CutPlane
 import app.orcaandroid.render.SectionView
+import app.orcaandroid.scad.ScadDesign
 import app.orcaandroid.ui.prepare.PaintMode
 import app.orcaandroid.core.VolumeType
 import java.io.File
@@ -52,8 +53,10 @@ class SceneController(private val store: Store, private val presets: PresetContr
 
     fun selectPlate(plate: Int) = store.update { it.copy(workspace = it.workspace.copy(activePlate = plate)) }
 
+    /** Ignored while the focus room is open: it keeps its object selected until Done. */
     fun select(selection: Selection?) = store.update {
-        it.copy(workspace = it.workspace.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.workspace.tool))
+        if (it.workspace.focus != null) it
+        else it.copy(workspace = it.workspace.copy(selection = selection, multiSelection = emptyList(), tool = if (selection == null) Tool.None else it.workspace.tool))
     }
 
     /** Adds every copy of the object to the selection, or removes them (the object list in select mode). */
@@ -431,7 +434,26 @@ class SceneController(private val store: Store, private val presets: PresetContr
         store.settings.sculptRadius = t.radius
     }
 
+    /** Design -> mesh without a question (a plain wrap loses nothing); set by the view model, which owns the builder. */
+    var freezeObject: (suspend (Int) -> Unit)? = null
+
+    /**
+     * Sculpt and Edit mesh change the surface directly, and the next builder render would overwrite that (U-05): on a design
+     * object they first ask "Keep as a fixed shape?" (a plain wrap of a mesh is frozen without asking). Setting on or off alike.
+     */
+    private suspend fun freezeGuard(tool: Tool): Boolean {
+        if (tool !is Tool.Sculpt && tool !is Tool.MeshEdit) return true
+        val w = store.value.workspace
+        val index = w.focus?.obj?.takeIf { it >= 0 } ?: w.selection?.obj ?: return true
+        val obj = w.scene.objects.getOrNull(index) ?: return true
+        if (roomKind(obj) != RoomKind.DESIGN) return true
+        if (ScadDesign.of(obj)?.shapes?.isPlainWrap() == true) { freezeObject?.invoke(index); return true }
+        store.update { it.copy(workspace = it.workspace.copy(freezeAsk = FreezeAsk(index, obj.name, tool))) }
+        return false
+    }
+
     fun setTool(tool: Tool) = store.launch {
+        if (!freezeGuard(tool)) return@launch
         val old = store.value.workspace.tool as? Tool.Paint
         old?.let { lastPaint[it.kind] = it }
         if (tool is Tool.Sculpt) rememberSculpt(tool)
@@ -454,7 +476,7 @@ class SceneController(private val store: Store, private val presets: PresetContr
         val hit = if ((store.value.workspace.tool == Tool.Measure || store.value.workspace.tool is Tool.Cut) && pxSize != null)
             measurePick(origin, dir, section, pxSize, around, store.value.workspace.measureSnap && !part)
             else pick(origin, dir, section)
-        if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None) {
+        if (hit == null && emptyPlate != null && store.value.workspace.tool == Tool.None && store.value.workspace.focus == null) {
             selectPlate(emptyPlate)
             return@launch
         }

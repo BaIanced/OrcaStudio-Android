@@ -1,0 +1,9 @@
+@import url("tokens/colors.css");
+@import url("tokens/type.css");
+@import url("tokens/shape.css");
+
+body {
+  margin: 0;
+  background: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-background);
+}

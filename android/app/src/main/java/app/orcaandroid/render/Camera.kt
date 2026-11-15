@@ -39,6 +39,10 @@ class Camera {
         changed()
     }
 
+    /** View height (px) below which the on-screen scale stops shrinking and the view crops instead; 0 = off. */
+    @Volatile var minScaleHeight = 0
+        set(v) { field = v; changed() }
+
     @Synchronized fun viewportSize() = width to height
 
     @Synchronized fun setViewport(w: Int, h: Int) {
@@ -67,7 +71,7 @@ class Camera {
         val radius = (max - min).length() / 2
         val aspect = width.toFloat() / height
         // Distance at which a sphere around the box fits the narrower field of view.
-        val half = Math.toRadians(FOV / 2.0).let { kotlin.math.tan(it) }.toFloat() * minOf(1f, aspect)
+        val half = halfTan() * minOf(1f, aspect)
         distance = (radius / half * 1.1f).coerceIn(5f, 10000f)
         if (!keepAngles) { yaw = -60f; pitch = 30f }
         changed()
@@ -147,7 +151,7 @@ class Camera {
 
     /** Pans in the view plane; dx/dy in screen pixels. */
     @Synchronized fun pan(dx: Float, dy: Float) {
-        val scale = 2f * distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
+        val scale = 2f * distance * halfTan() / height
         val (r, u) = axes()
         for (i in 0..2) target[i] += (-dx * r[i] + dy * u[i]) * scale
         changed()
@@ -227,8 +231,15 @@ class Camera {
     /** World size of one screen pixel at [p]. */
     @Synchronized fun pxSize(p: Vec3): Float {
         val depth = if (perspective) max(1f, (eye() - p).dot(towardsEye())) else distance
-        return 2f * depth * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() / height
+        return 2f * depth * halfTan() / height
     }
+
+    /**
+     * Tangent of the half vertical field of view in use. Below [minScaleHeight] pixels of view height it shrinks in
+     * proportion, so the on-screen scale holds and the view crops (stays centred on the target) instead of shrinking.
+     */
+    private fun halfTan(): Float =
+        kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat() * height / max(height, minScaleHeight)
 
     private fun eyeDistance() =if (perspective) distance else distance + ORTHO_BACK
 
@@ -254,9 +265,11 @@ class Camera {
         val view = FloatArray(16)
         val (near, far) = clip()
         val aspect = width.toFloat() / height
-        if (perspective) Matrix.perspectiveM(proj, 0, FOV, aspect, near, far)
-        else {
-            val h = distance * kotlin.math.tan(Math.toRadians(FOV / 2.0)).toFloat()
+        if (perspective) {
+            val top = near * halfTan()
+            Matrix.frustumM(proj, 0, -top * aspect, top * aspect, -top, top, near, far)
+        } else {
+            val h = distance * halfTan()
             Matrix.orthoM(proj, 0, -h * aspect, h * aspect, -h, h, near, far)
         }
         Matrix.setLookAtM(view, 0, e.x, e.y, e.z, target[0], target[1], target[2], 0f, 0f, 1f)

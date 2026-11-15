@@ -164,6 +164,13 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** Push / pull: the arrow drag of [facePick] let go at distance [d] (file mm); the pick follows the face to its new cap. */
     fun pushPicked(d: Double) {
         val p = facePick.value ?: return
+        if (p.side != null) {
+            // A side of a shape's box (not a MESH): the box grows or shrinks out of it; the pick moves with the side.
+            val made = pushSide(p.shapeId, p.side, d - p.op.d) ?: return
+            val moved = p.normal * made.toFloat()
+            facePick.value = p.copy(op = p.op.copy(d = p.op.d + made), outline = p.outline.map { l -> l.map { it + moved } })
+            return
+        }
         val before = design?.find(p.shapeId)?.faces?.size ?: return
         pushFace(p.shapeId, p.index, p.op, d)
         val shift = p.normal * (d - p.op.d).toFloat()
@@ -181,6 +188,22 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val s = des.find(id)?.takeIf { it.kind == Shape.Kind.MESH } ?: return
         val faces = if (index in s.faces.indices) s.faces.mapIndexed { i, f -> if (i == index) f.copy(d = d) else f } else s.faces + op.copy(d = d)
         commit(held(des, des.withFaces(id, faces.filter { kotlin.math.abs(it.d) > 1e-9 }), id))
+    }
+
+    /**
+     * Push / pull on a shape that is not a MESH: box side [side] ([app.orcaandroid.scad.ShapeDesign.boxSide]) of shape [id]
+     * moved [delta] mm out (one undo step; a field bound to a slider changes the slider). Returns the move made, or null.
+     */
+    private fun pushSide(id: Int, side: Int, delta: Double): Double? {
+        val des = design ?: return null
+        val s = des.find(id) ?: return null
+        val (size, pos, made) = des.sidePushed(id, side, delta) ?: return null
+        if (kotlin.math.abs(made) < 1e-9) return null
+        var next = des
+        for ((name, now, to) in listOf(Triple("size", des.size(s), size), Triple("pos", des.pos(s), pos)))
+            for (i in 0..2) if (kotlin.math.abs(now[i] - to[i]) > 1e-6) next = withField(next, id, "$name.${"xyz"[i]}", to[i]) ?: next
+        commit(held(des, next, id))
+        return made
     }
 
     /** Push / pull: MESH shape [id]'s face op [index] taken off (the Shape panel's "Face edits" list). */
@@ -306,6 +329,46 @@ class ShapeController(private val store: Store, private val scad: ScadController
         val shape = beside(d, ShapeDesign.create(kind, d.nextId, name))
         commit(d.copy(shapes = d.shapes + shape, nextId = d.nextId + 1), listOf(shape.id))
         return shape.id
+    }
+
+    /** The sketch shape whose drawing the builder panel should open now (set by [addSketch], taken by the panel). */
+    var sketchRequest by androidx.compose.runtime.mutableStateOf<Int?>(null)
+
+    /** The palette's Sketch chip: adds a sketch shape and opens its drawing (the focus room's Sketch tool calls this too). */
+    fun addSketch() {
+        val before = design to selected
+        // Its placeholder outline stays off the plate until the drawing is done (it showed as a stray cube, r562).
+        scad.holdBuild(true)
+        val id = add(Shape.Kind.SKETCH)
+        if (id == null) scad.holdBuild(false)
+        justAdded = id?.let { JustAdded(it, before.first, before.second, design) }
+        sketchRequest = id
+    }
+
+    /** A sketch shape [addSketch] added whose drawing was not confirmed yet: the design and selection before it, and after. */
+    private class JustAdded(val id: Int, val before: ShapeDesign?, val selection: List<Int>, val after: ShapeDesign?)
+    private var justAdded: JustAdded? = null
+
+    /**
+     * The drawing of sketch shape [id] was left with Back / Cancel. A shape [addSketch] just added and nobody confirmed
+     * goes again, and its builder undo step with it (when nothing else changed meanwhile; otherwise it is deleted as one more
+     * step). A sketch that was already there, or one with a confirmed drawing ([setSketch]), stays.
+     */
+    fun cancelNewSketch(id: Int) {
+        val j = justAdded?.takeIf { it.id == id } ?: return
+        justAdded = null
+        val cur = design ?: return scad.holdBuild(false)
+        val before = j.before
+        if (before != null && cur === j.after && undoOwner === cur && undo.lastOrNull()?.first === before) {
+            undo.removeLast()
+            undoOwner = before
+            scad.setShapes(before, j.selection)
+        } else if (cur.find(id) != null) {
+            fun prune(list: List<Shape>): List<Shape> = list.filter { it.id != id }.map { if (it.isGroup) it.copy(children = prune(it.children)) else it }
+            commit(cur.copy(shapes = prune(cur.shapes)), selected.filter { it != id })
+        }
+        // Still held: the plate only catches up if the design now differs from it (usually it doesn't: nothing to render).
+        scad.holdBuild(false)
     }
 
     /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
@@ -448,6 +511,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
      */
     fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
         val d = design ?: return
+        if (justAdded?.id == id) { justAdded = null; scad.holdBuild(false) }
         commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
     }
 
