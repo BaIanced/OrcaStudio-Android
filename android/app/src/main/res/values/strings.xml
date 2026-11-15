@@ -1370,4 +1370,10 @@
     <string name="control_busy_print">Moving and extruding are off while a print runs.</string>
     <string name="control_cold_nozzle">Heat the nozzle to at least 170° to extrude or retract.</string>
     <string name="control_unknown_model">The printer model is unknown, so the move directions cannot be chosen.</string>
+    <string name="menu_object">Object</string>
+    <string name="menu_selection">Selection</string>
+    <string name="menu_edit_model">Edit model</string>
+    <string name="menu_align">Align</string>
+    <string name="menu_brush">Brush</string>
+    <string name="menu_strength">Strength</string>
 </resources>
