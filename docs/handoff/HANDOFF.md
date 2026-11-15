@@ -42,6 +42,7 @@ Read this first. Don't use any title for the user ("Supreme Master" was a joke; 
 - Plate shrink on panel drag fixed (SCALE_FLOOR 0.6, `PlateRenderer.onSurfaceChanged`); untested: pinch / pan, ortho, landscape, `fit()` with the floor. Double-tap frame with the panel up: backlog.
 - Devices 2026-11-14 (user, later the same day): phone is home and ready; the user tries builds on the phone.
 - **WAITING ON THE USER: verdict on r561 from the phone** (More > Edit shape on a selected object; Settings > Experimental switch). On "fine": merge the branch to main (PR, no AI attribution; ANSWERS 30 is the approval). r561 is on the phone and WSA; CI r561 green; release smoke 8/8 off and on; both undo cases pass (archive "T-055 close-out on r561").
+- **/design-sync (user 2026-11-14): tokens-only Claude Design project from the Compose theme**; plan and decision in `.design-sync/NOTES.md` (read it first, then re-run /design-sync). Runs alongside the r561 wait.
 ## User decisions
 - Modeling goal, one plate per import, plate camera, plate switcher lab (keep, don't ask): reference "User decisions".
 
