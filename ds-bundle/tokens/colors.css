@@ -1,0 +1,131 @@
+/* OrcaStudio Android colour tokens. Source: android/app/src/main/java/app/orcaandroid/ui/theme/AppColors.kt
+   (default "Prusa" preset: orange on neutral greys). Light is the default; dark follows the system or [data-theme="dark"]. */
+:root {
+  --md-sys-color-primary: #D84000;
+  --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #FFDBCA;
+  --md-sys-color-on-primary-container: #3A1100;
+  --md-sys-color-secondary: #60646C;
+  --md-sys-color-on-secondary: #FFFFFF;
+  --md-sys-color-secondary-container: #E4E5EA;
+  --md-sys-color-on-secondary-container: #1E1F24;
+  --md-sys-color-tertiary: #2F6FD0;
+  --md-sys-color-on-tertiary: #FFFFFF;
+  --md-sys-color-tertiary-container: #D6E4FF;
+  --md-sys-color-on-tertiary-container: #0B2A55;
+  --md-sys-color-background: #FCFCFD;
+  --md-sys-color-on-background: #1E1F24;
+  --md-sys-color-surface: #FCFCFD;
+  --md-sys-color-on-surface: #1E1F24;
+  --md-sys-color-surface-tint: #1E1F24;
+  --md-sys-color-surface-variant: #E4E5EA;
+  --md-sys-color-on-surface-variant: #60646C;
+  --md-sys-color-surface-container-lowest: #FFFFFF;
+  --md-sys-color-surface-container-low: #F6F6F8;
+  --md-sys-color-surface-container: #F0F0F3;
+  --md-sys-color-surface-container-high: #EDEEF0;
+  --md-sys-color-surface-container-highest: #E4E5EA;
+  --md-sys-color-outline: #8B8D98;
+  --md-sys-color-outline-variant: #D9DAE0;
+  --md-sys-color-error: #CE2C31;
+  --md-sys-color-on-error: #FFFFFF;
+  --md-sys-color-error-container: #FFDBDC;
+  --md-sys-color-on-error-container: #64181B;
+
+  /* Room strips (one colour per mode of the app) */
+  --orca-room-make: #2E7D4F;
+  --orca-room-reshape: #1F7A8C;
+  --orca-room-paint: #7F67BE;
+  --orca-room-cut: #B0306F;
+  /* 3D view */
+  --orca-view-part: #F59433;
+  --orca-view-selection: #2F6FD0;
+  --orca-view-background: var(--md-sys-color-surface-container-highest);
+  --orca-view-grid: var(--md-sys-color-outline);
+  --orca-view-active-plate: var(--md-sys-color-primary);
+  /* Axes: an arrow, bar or dot, never text. Same in both themes. */
+  --orca-axis-x: #EF5350;
+  --orca-axis-y: #66BB6A;
+  --orca-axis-z: #42A5F5;
+  /* Live label: dark pill with light ink in both themes */
+  --orca-live-label: #2B2C32;
+  --orca-on-live-label: #EDEEF0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --md-sys-color-primary: #FF7300;
+    --md-sys-color-on-primary: #1E1F24;
+    --md-sys-color-primary-container: #5C2400;
+    --md-sys-color-on-primary-container: #FFDBCA;
+    --md-sys-color-secondary: #B9BBC6;
+    --md-sys-color-on-secondary: #1E1F24;
+    --md-sys-color-secondary-container: #3A3B42;
+    --md-sys-color-on-secondary-container: #F0F0F3;
+    --md-sys-color-tertiary: #7FB3FF;
+    --md-sys-color-on-tertiary: #0B2A55;
+    --md-sys-color-tertiary-container: #1F3A5F;
+    --md-sys-color-on-tertiary-container: #D6E4FF;
+    --md-sys-color-background: #1A1B1F;
+    --md-sys-color-on-background: #EDEEF0;
+    --md-sys-color-surface: #1A1B1F;
+    --md-sys-color-on-surface: #EDEEF0;
+    --md-sys-color-surface-tint: #EDEEF0;
+    --md-sys-color-surface-variant: #3A3B42;
+    --md-sys-color-on-surface-variant: #B9BBC6;
+    --md-sys-color-surface-container-lowest: #141518;
+    --md-sys-color-surface-container-low: #1E1F24;
+    --md-sys-color-surface-container: #222328;
+    --md-sys-color-surface-container-high: #2B2C32;
+    --md-sys-color-surface-container-highest: #36373D;
+    --md-sys-color-outline: #7F818C;
+    --md-sys-color-outline-variant: #45464E;
+    --md-sys-color-error: #FF5A5F;
+    --md-sys-color-on-error: #3B0A0C;
+    --md-sys-color-error-container: #64181B;
+    --md-sys-color-on-error-container: #FFD9D9;
+    --orca-room-make: #7FD1A0;
+    --orca-room-reshape: #4FB6C9;
+    --orca-room-paint: #A98BF0;
+    --orca-room-cut: #F28DBB;
+    --orca-view-selection: #7FB3FF;
+  }
+}
+
+:root[data-theme="dark"] {
+  --md-sys-color-primary: #FF7300;
+  --md-sys-color-on-primary: #1E1F24;
+  --md-sys-color-primary-container: #5C2400;
+  --md-sys-color-on-primary-container: #FFDBCA;
+  --md-sys-color-secondary: #B9BBC6;
+  --md-sys-color-on-secondary: #1E1F24;
+  --md-sys-color-secondary-container: #3A3B42;
+  --md-sys-color-on-secondary-container: #F0F0F3;
+  --md-sys-color-tertiary: #7FB3FF;
+  --md-sys-color-on-tertiary: #0B2A55;
+  --md-sys-color-tertiary-container: #1F3A5F;
+  --md-sys-color-on-tertiary-container: #D6E4FF;
+  --md-sys-color-background: #1A1B1F;
+  --md-sys-color-on-background: #EDEEF0;
+  --md-sys-color-surface: #1A1B1F;
+  --md-sys-color-on-surface: #EDEEF0;
+  --md-sys-color-surface-tint: #EDEEF0;
+  --md-sys-color-surface-variant: #3A3B42;
+  --md-sys-color-on-surface-variant: #B9BBC6;
+  --md-sys-color-surface-container-lowest: #141518;
+  --md-sys-color-surface-container-low: #1E1F24;
+  --md-sys-color-surface-container: #222328;
+  --md-sys-color-surface-container-high: #2B2C32;
+  --md-sys-color-surface-container-highest: #36373D;
+  --md-sys-color-outline: #7F818C;
+  --md-sys-color-outline-variant: #45464E;
+  --md-sys-color-error: #FF5A5F;
+  --md-sys-color-on-error: #3B0A0C;
+  --md-sys-color-error-container: #64181B;
+  --md-sys-color-on-error-container: #FFD9D9;
+  --orca-room-make: #7FD1A0;
+  --orca-room-reshape: #4FB6C9;
+  --orca-room-paint: #A98BF0;
+  --orca-room-cut: #F28DBB;
+  --orca-view-selection: #7FB3FF;
+}

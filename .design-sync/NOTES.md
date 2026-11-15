@@ -12,3 +12,6 @@
   `tokens/colors.css`, `tokens/type.css`, `tokens/shape.css` (radii, spacing, 48 dp touch target), `README.md` with
   `.design-sync/conventions.md` as its header. Record `projectId` in `.design-sync/config.json` as soon as the project exists.
 - Paused before the build because the session context was past the user's /clear limit.
+- 2026-11-14: first sync done. Project "OrcaStudio Android" (`cf5aac6c-4650-46a4-bb1a-05836343106e`), 5 files + `_ds_sync.json`, incremental path.
+  `ds-bundle/` is hand-written (no converter); re-sync = re-read `AppColors.kt`/`Tokens.kt`, update `ds-bundle/tokens/*.css`, re-upload,
+  rewrite `_ds_sync.json` (sha256 prefix per file) last. `pkg` in config is a label only. Colour presets/custom overrides are not mirrored.

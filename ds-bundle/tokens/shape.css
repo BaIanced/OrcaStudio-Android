@@ -1,0 +1,16 @@
+/* Sources: Tokens.kt (Space, TouchTarget) and the RoundedCornerShape values used across the app (dp = px here). */
+:root {
+  --orca-space-xs: 4px;
+  --orca-space-s: 8px;
+  --orca-space-m: 12px;
+  --orca-space-l: 16px;
+  --orca-space-xl: 24px;
+  --orca-touch-target: 48px;       /* smallest tappable size */
+  --orca-touch-target-floor: 40px; /* never below this after density scaling */
+  --orca-radius-xs: 4px;
+  --orca-radius-s: 8px;
+  --orca-radius-m: 12px;  /* most common: cards, panels */
+  --orca-radius-l: 16px;
+  --orca-radius-xl: 20px;
+  --orca-radius-pill: 999px;
+}
