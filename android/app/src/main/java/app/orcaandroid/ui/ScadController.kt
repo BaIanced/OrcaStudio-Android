@@ -132,9 +132,22 @@ class ScadController(private val store: Store) {
     /**
      * Opens the editor on the saved draft (or the first example). A [newDesign] (not an object's own design)
      * moves to an empty plate when the draft isn't on the plate yet.
+     *
+     * [draft] false: the caller loads its own design right after (an object's design, a mesh, a new or opened file), so
+     * the draft only opens the editor: no plate link, no shapes, no render. Rendering it would place the old draft on the
+     * plate once its object is gone (or put its mesh into an object of the same name) when the caller's load comes later
+     * than the render delay, e.g. a large mesh being wrapped.
      */
-    fun open(newDesign: Boolean = true) = store.launch {
+    fun open(newDesign: Boolean = true, draft: Boolean = true) = store.launch {
         if (st != null) return@launch
+        if (!draft) {
+            val auto = withContext(Dispatchers.IO) { runCatching { JSONObject(draftMeta.readText()).optBoolean("autoRender", true) }.getOrDefault(true) }
+            store.update {
+                it.copy(design = it.design.copy(scad = ScadEditorState(name = ScadExamples.BOX.file, file = draftFile.path, source = "", autoRender = auto)),
+                    chrome = it.chrome.copy(screen = Screen.PREPARE))
+            }
+            return@launch
+        }
         val (source, meta) = withContext(Dispatchers.IO) {
             (draftFile.takeIf { it.isFile }?.readText() ?: ScadExamples.BOX.source) to
                 runCatching { JSONObject(draftMeta.readText()) }.getOrNull()
@@ -197,7 +210,7 @@ class ScadController(private val store: Store) {
     /** Opens a .scad file (from the file picker, a download or a model site's zip). */
     fun openFile(file: File) = store.launch {
         val source = withContext(Dispatchers.IO) { file.readText() }
-        if (st == null) open().join()
+        if (st == null) open(draft = false).join()
         store.update { it.copy(design = it.design.copy(scadHidden = false)) }
         // A shape-builder design saved by [save] reopens in the builder; if its code was edited since, it opens as
         // code without the (stale) shapes line.
@@ -216,7 +229,7 @@ class ScadController(private val store: Store) {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         val design = ScadDesign.of(obj) ?: return@launch
         showPlateOf(obj)
-        if (st == null) open(newDesign = false).join()
+        if (st == null) open(newDesign = false, draft = false).join()
         // A design with its own include files gets them back in a folder of its own.
         val file = if (design.files.isEmpty()) draftFile.path else withContext(Dispatchers.IO) {
             design.unpack(File(dir, "designs/" + Integer.toHexString(design.encode().hashCode()))).path
@@ -239,7 +252,7 @@ class ScadController(private val store: Store) {
         val obj = store.value.workspace.scene.objects.getOrNull(index) ?: return@launch
         if (ScadDesign.of(obj) != null) { editObject(index).join(); return@launch }
         showPlateOf(obj)
-        if (st == null) open(newDesign = false).join()
+        if (st == null) open(newDesign = false, draft = false).join()
         val tmp = File(store.app.cacheDir, "openscad/volumes-${System.nanoTime()}").apply { mkdirs() }
         val shapes = try {
             val volumes = engine.exportVolumes(index, tmp.path)
@@ -281,7 +294,7 @@ class ScadController(private val store: Store) {
 
     /** A new design built from shapes (no code). */
     fun newShapes() = store.launch {
-        if (st == null) open().join()
+        if (st == null) open(draft = false).join()
         val d = ShapeDesign()
         load(store.str(R.string.shape_new_name), draftFile.path, d.toScad(), shapes = d)
     }

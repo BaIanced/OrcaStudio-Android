@@ -836,6 +836,19 @@ fun Viewport(state: UiState, vm: AppViewModel, onView: (PlateView) -> Unit, modi
         // A plate already on screen becomes active without moving the camera (user, 2026-10-13); double tap frames it.
         v.onGl { activePlate = plate }
     }
+    // A new object alone on its plate (an import onto a project gets a plate of its own, FileController.useEmptyPlate) that
+    // the view does not show: frame that plate, so what was just added is on screen. A plate in view keeps the camera, and
+    // the builder / focus room frame their own object.
+    var seenObjects by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(v, scene.objects.size) {
+        val prev = seenObjects
+        seenObjects = scene.objects.size
+        // Skips the first composition and a restore into an empty view (the restored camera stays).
+        if (prev <= 0 || scene.objects.size <= prev || state.design.scad != null || state.workspace.focus != null) return@LaunchedEffect
+        val plate = scene.objects.last().instances.firstOrNull()?.plate?.takeIf { it >= 0 } ?: return@LaunchedEffect
+        if (scene.objects.dropLast(1).any { o -> o.instances.any { it.plate == plate } }) return@LaunchedEffect
+        v.onGl { if (!plateInView(plate)) frame(plate) }
+    }
     LaunchedEffect(v, state.device.filaments) {
         val cols = state.device.filaments.map { hexToRgb(it.color ?: "#FF7F27") }
         val mats = state.device.filaments.map { FilamentMaterial.entries.firstOrNull { m -> m.name == it.look } ?: FilamentMaterial.of(it.preset, it.overrides["filament_type"]) }

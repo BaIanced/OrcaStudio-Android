@@ -172,8 +172,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 roomOpening = false
             }
             store.update { st ->
+                // No object of the plate stays selected: the room has none until its first shape is placed (watchRoom).
                 st.copy(workspace = st.workspace.copy(focus = FocusRoom(-1, store.str(R.string.shape_new_name), RoomTool.SHAPES, created = true),
-                    tool = Tool.None, contextMenu = null))
+                    tool = Tool.None, contextMenu = null, selection = null, multiSelection = emptyList()))
             }
             scad.newShapes()
         }
