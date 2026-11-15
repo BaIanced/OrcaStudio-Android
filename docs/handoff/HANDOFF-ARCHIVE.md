@@ -4534,3 +4534,6 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 
 ## 2026-11-15 T-081 edge panel (device-checked: debug build on the WSA VD)
 - ad9d0eb: setting `edge_menu` (+ `edge_menu_left`), `EdgePanel.kt` handle + drill-down panel on the T-080 tree; tap and slide-through ran Arrange and Object > Cut, Back closes, no tool column with the setting on; setting off = layout identical (4 dumps). Details + deviations: MASTER-PLAN T-081 tick. Untested: hover-open, back-swipe exclusion, phone.
+
+## 2026-11-15 T-082 hold menu (device-checked: debug build on the WSA VD)
+- afbfe7a: with `edge_menu` on, the hold menu is a Popup at the finger on the T-080 tree (start group by hit), slide-through via `onLongPressTouch`, align icon rows, auto-scroll; shared logic in `MenuLevel.kt`. Hold-drag Duplicate, hold-then-tap, align of 2 objects device-checked; right click source-checked only. Setting off: menu dumps identical. Details: MASTER-PLAN T-082 tick.
