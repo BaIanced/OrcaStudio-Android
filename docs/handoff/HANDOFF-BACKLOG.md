@@ -16,6 +16,13 @@ Tags: [Opus] = hard native/math/design; untagged = Sonnet is fine. User 2026-10-
 - [Opus/native] Cancel ignored after ~7 s of a huge slice: write_preview (OrcaEngine.cpp) lacks an m_interrupt check (T-005).
 - [Opus] 59 UNCONFIRMED rows in THIRD_PARTY_NOTICES.md (T-010): confirm against dependency licence files; android-v tag link dead on local builds.
 - "The last session could not be opened. It was kept." bar seen once after force-stops (T-018): check whether force-stop mid-save leaves a bad session file.
+- Focus room: Reshape card covers the lower view on a narrow portrait screen (T-055 finding 3; fable gate, r560 WSA VD, 2026-11-14).
+- Focus room: false "N mm below the bed" Fit warning after wrapping a mesh whose origin is mid-height (T-055 finding 4; seen again on r561, 20 mm cube: "10 mm below", 2026-11-14).
+- Undo / Redo buttons report enabled="true" in the UI dump even with nothing to undo; check whether they look disabled on screen (T-055 finding 5, UI dump only).
+- Settings: Experimental section is off-screen until "Printers & presets" is collapsed (T-055 finding 6).
+- Double tap (frame) with the panel pulled up frames for the uncropped view; make it fit the visible plate (Claude's call, after the SCALE_FLOOR fix).
+- Device run of the T-044 review fix (left over from batch 4).
+- Release smoke: `~/orca-android-tools/smoke-rel.sh` = smoke.sh for the release package (root prefs edit, import via the app's own file provider `content://<pkg>.files/out/`); fold it into smoke.sh as a PKG option.
 
 ## Core, waits on the UI direction
 - [Opus] Sculpt + symmetry: the gate feature (SIGNOFF S-05).
