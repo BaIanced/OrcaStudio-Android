@@ -1,6 +1,8 @@
 package app.orcaandroid.ui
 
 import android.app.Application
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.orcaandroid.CrashReport
@@ -204,8 +206,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** A room tool switch is on its way (conversions take a moment): taps on the toolbar meanwhile are ignored. */
-    private var roomRouting = false
+    /** A room tool switch is on its way (conversions take a moment): taps on the toolbar meanwhile are ignored; the toolbar shows a busy bar. */
+    var roomRouting by androidx.compose.runtime.mutableStateOf(false)
+        private set
 
     /** Section 5's routing table: the toolbar's tap on [tool]. A tool of the other family converts the object first. */
     fun setRoomTool(tool: RoomTool) {

@@ -58,6 +58,9 @@ private val ROOM_TOOLS = listOf(
 internal fun RoomToolbar(state: UiState, vm: AppViewModel, modifier: Modifier = Modifier) {
     val focus = state.workspace.focus ?: return
     Surface(modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+      Box {
+        // A switch that converts the object (a big mesh's wrap) takes a while; taps meanwhile are ignored, so show it.
+        if (vm.roomRouting) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.BottomCenter))
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
             ROOM_TOOLS.forEach { e ->
                 val selected = focus.tool == e.tool
@@ -74,6 +77,7 @@ internal fun RoomToolbar(state: UiState, vm: AppViewModel, modifier: Modifier = 
                 }
             }
         }
+      }
     }
 }
 

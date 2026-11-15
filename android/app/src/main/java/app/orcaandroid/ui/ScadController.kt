@@ -301,6 +301,7 @@ class ScadController(private val store: Store) {
 
     private fun load(name: String, file: String, source: String, values: Map<String, Any> = emptyMap(), onPlate: String? = null,
                      shapes: ShapeDesign? = null) {
+        buildHeld = false
         set { it.copy(name = name, file = file, source = source, loadId = it.loadId + 1, values = values,
             params = emptyList(), log = "", status = null, onPlate = onPlate, preview = null, shapes = shapes, selected = emptyList()) }
         refreshParams(0)
@@ -312,6 +313,7 @@ class ScadController(private val store: Store) {
 
     /** Closes the builder. Returns the job that removes the plate added for the design, if there is one (the focus room waits for it). */
     fun close(): Job? {
+        buildHeld = false
         renderJob?.cancel()
         previewDelay?.cancel()
         previewJob?.cancel()
@@ -959,8 +961,25 @@ class ScadController(private val store: Store) {
         if (o < 0 && st?.shapes != null && !store.value.design.scadOnPlate) preview()
     }
 
+    /**
+     * A sketch shape was just added and its drawing is still open ([ShapeController.addSketch]): edits stay off the plate,
+     * so its placeholder outline never shows as a stray piece. Released when the drawing is done or dropped.
+     */
+    private var buildHeld = false
+
+    /** [on]: edits stop going to the plate (a queued one is dropped). Off: the plate catches up once, if the design differs from it. */
+    fun holdBuild(on: Boolean) {
+        if (buildHeld == on) return
+        buildHeld = on
+        if (on) { previewDelay?.cancel(); renderAgain = false; return }
+        val o = store.value.buildObject
+        if (o != null) { if (ScadDesign.of(store.value.workspace.scene.objects.getOrNull(o))?.shapes != st?.shapes) pushBuild() }
+        else if (store.value.design.scadOnPlate) placeShapes()
+    }
+
     /** Build workspace: an edit goes straight to the object's pieces (no whole-design preview); one during a render queues the next. */
     private fun pushBuild() {
+        if (buildHeld) return
         previewDelay?.cancel()
         previewDelay = store.scope.launch {
             delay(if (dragging) DRAG_DEBOUNCE else 150)

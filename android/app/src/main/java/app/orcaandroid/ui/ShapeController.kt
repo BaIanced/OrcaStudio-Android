@@ -314,7 +314,10 @@ class ShapeController(private val store: Store, private val scad: ScadController
     /** The palette's Sketch chip: adds a sketch shape and opens its drawing (the focus room's Sketch tool calls this too). */
     fun addSketch() {
         val before = design to selected
+        // Its placeholder outline stays off the plate until the drawing is done (it showed as a stray cube, r562).
+        scad.holdBuild(true)
         val id = add(Shape.Kind.SKETCH)
+        if (id == null) scad.holdBuild(false)
         justAdded = id?.let { JustAdded(it, before.first, before.second, design) }
         sketchRequest = id
     }
@@ -331,7 +334,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
     fun cancelNewSketch(id: Int) {
         val j = justAdded?.takeIf { it.id == id } ?: return
         justAdded = null
-        val cur = design ?: return
+        val cur = design ?: return scad.holdBuild(false)
         val before = j.before
         if (before != null && cur === j.after && undoOwner === cur && undo.lastOrNull()?.first === before) {
             undo.removeLast()
@@ -341,6 +344,8 @@ class ShapeController(private val store: Store, private val scad: ScadController
             fun prune(list: List<Shape>): List<Shape> = list.filter { it.id != id }.map { if (it.isGroup) it.copy(children = prune(it.children)) else it }
             commit(cur.copy(shapes = prune(cur.shapes)), selected.filter { it != id })
         }
+        // Still held: the plate only catches up if the design now differs from it (usually it doesn't: nothing to render).
+        scad.holdBuild(false)
     }
 
     /** Adds a ready-made [part] (one editable group) beside the others and selects it. */
@@ -483,7 +488,7 @@ class ShapeController(private val store: Store, private val scad: ScadController
      */
     fun setSketch(id: Int, sketch: Sketch, dims: List<Dim>? = null) {
         val d = design ?: return
-        if (justAdded?.id == id) justAdded = null
+        if (justAdded?.id == id) { justAdded = null; scad.holdBuild(false) }
         commit((if (dims != null) d.withDims(dims) else d).update(id) { ShapeDesign.fitSketch(it, sketch) })
     }
 
