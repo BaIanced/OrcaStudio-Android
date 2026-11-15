@@ -344,6 +344,8 @@ data class ChromeState(
     /** Experimental setting "Edge menu" (docs/design/EDGE-MENU.md): no tool column, an edge panel instead; and its side. */
     val edgeMenu: Boolean = false,
     val edgeMenuLeft: Boolean = false,
+    /** The edge menu's shortcuts: stable menu node ids in dock order (section 7; unknown ids are skipped when shown). */
+    val shortcuts: List<String> = emptyList(),
     val coachDismissed: Boolean = true,
     val filamentChoice: FilamentChoice? = null,
     /** A project file dropped onto a plate with objects: its name while asking open-as-project vs import. */

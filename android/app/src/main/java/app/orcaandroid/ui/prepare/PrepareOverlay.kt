@@ -273,8 +273,15 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
         if (!editing) Column(if (rightPanel) Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp)
                else Modifier.align(Alignment.BottomStart).padding(start = if (column) 64.dp else 0.dp,
                    bottom = if (wide) 0.dp else if (column || edge) 72.dp else 116.dp)) {
+            // Shortcut dock (ShortcutDock.kt): end side, 8 dp above the tool card or the bottom row.
+            if (edge && !wide) Box(Modifier.fillMaxWidth().padding(bottom = 8.dp), contentAlignment = Alignment.BottomEnd) {
+                ShortcutDock(state, vm, view, vertical = false)
+            }
             ToolPanel(state, vm)
         }
+        // Wide: a column beside the handle, above the Slice button.
+        if (edge && wide && !editing) ShortcutDock(state, vm, view, vertical = true,
+            Modifier.align(Alignment.BottomEnd).padding(bottom = 72.dp, end = if (state.chrome.edgeMenuLeft) 0.dp else 40.dp))
         if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
         else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.

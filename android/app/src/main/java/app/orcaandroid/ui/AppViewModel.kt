@@ -520,6 +520,41 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(edgeMenuLeft = on)) }
     }
 
+    private fun saveShortcuts(ids: List<String>) {
+        store.settings.shortcuts = app.orcaandroid.ui.prepare.Shortcuts.join(ids)
+        store.update { it.copy(chrome = it.chrome.copy(shortcuts = ids)) }
+    }
+
+    /** The pin button of a menu row (spec section 7): adds or removes the shortcut, with a snackbar Undo; refused when full. */
+    fun toggleShortcut(id: String) {
+        val sc = app.orcaandroid.ui.prepare.Shortcuts
+        val cur = store.value.chrome.shortcuts
+        if (id in sc.clean(cur)) removeShortcut(id)
+        else {
+            val next = sc.add(cur, id)
+            if (next == null) { if (sc.known(id)) store.toast(store.str(R.string.shortcut_full)); return }
+            saveShortcuts(next)
+            store.toast(store.str(R.string.shortcut_added), MessageAction(store.str(R.string.undo)) { saveShortcuts(sc.remove(store.value.chrome.shortcuts, id)) })
+        }
+    }
+
+    /** Takes [id] out of the shortcuts; Undo puts it back where it was. */
+    fun removeShortcut(id: String) {
+        val sc = app.orcaandroid.ui.prepare.Shortcuts
+        val cur = sc.clean(store.value.chrome.shortcuts)
+        val at = cur.indexOf(id)
+        if (at < 0) return
+        saveShortcuts(sc.remove(cur, id))
+        store.toast(store.str(R.string.shortcut_removed), MessageAction(store.str(R.string.undo)) {
+            sc.insert(store.value.chrome.shortcuts, id, at)?.let(::saveShortcuts)
+        })
+    }
+
+    /** The dock's [visible] shortcuts in their new order. */
+    fun reorderShortcuts(visible: List<String>) {
+        saveShortcuts(app.orcaandroid.ui.prepare.Shortcuts.reorder(store.value.chrome.shortcuts, visible))
+    }
+
     fun setAutoSlice(on: Boolean) {
         store.settings.autoSlice = on
         store.update { it.copy(slicing = it.slicing.copy(autoSlice = on)) }

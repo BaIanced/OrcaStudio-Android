@@ -1382,4 +1382,17 @@
     <string name="edge_menu_text">Tools in a menu at the screen edge and under a long press, instead of the button column.</string>
     <string name="edge_menu_left">Edge menu on the left</string>
     <string name="shortcut_add">Add to shortcuts</string>
+    <string name="shortcut_remove">Remove from shortcuts</string>
+    <string name="shortcut_added">Added to shortcuts</string>
+    <string name="shortcut_removed">Removed from shortcuts</string>
+    <string name="shortcut_full">Shortcuts full</string>
+    <string name="shortcut_hint">Tap the pin in a menu to keep a tool here</string>
+    <string name="shortcut_dock">Shortcuts</string>
+    <string name="shortcut_remove_one">Remove %1$s</string>
+    <string name="shortcut_need_object">Select an object first</string>
+    <string name="shortcut_need_one">Select a single object first</string>
+    <string name="shortcut_need_many">Select two or more objects first</string>
+    <string name="shortcut_need_scene">Add an object first</string>
+    <string name="shortcut_not_in_room">Not available while editing a shape</string>
+    <string name="shortcut_unavailable">Not available right now</string>
 </resources>

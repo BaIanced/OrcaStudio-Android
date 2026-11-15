@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -221,11 +222,14 @@ internal fun SlideAutoScroll(nav: MenuNav, slideTo: (Offset) -> Unit) {
 
 /**
  * One level: the back row (below the top level), then [nodes]; a divider after the first [divider] rows (0 = none). The
- * leaves of an icon-row branch (Align) show as icon buttons, three to a row.
+ * leaves of an icon-row branch (Align) show as icon buttons, three to a row, without a pin (a pin sits on a row; the six
+ * align icons only mean something with two or more objects selected, which a dock button could not show).
+ * [pins] are the shortcut ids; [onPin] is a tap on a leaf's pin button.
  */
 @Composable
 internal fun MenuLevel(state: UiState, view: PlateView?, nav: MenuNav, path: List<String>, nodes: List<MenuNode>, divider: Int,
-                       onActivate: (String) -> Unit, onSlider: (MenuNode, Float) -> Unit, modifier: Modifier = Modifier) {
+                       onActivate: (String) -> Unit, onSlider: (MenuNode, Float) -> Unit, pins: List<String>, onPin: (MenuNode) -> Unit,
+                       modifier: Modifier = Modifier) {
     val levelKey = path.joinToString("/")
     val live = levelKey == nav.level
     val scroll = rememberScrollState()
@@ -269,8 +273,16 @@ internal fun MenuLevel(state: UiState, view: PlateView?, nav: MenuNav, path: Lis
                 Text(node.text ?: stringResource(node.label), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
                 if (checked == true) Icon(Icons.Default.Check, null, Modifier.padding(horizontal = 4.dp))
                 if (!node.isLeaf) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.padding(end = 8.dp))
-                // Shortcuts (T-083) wire this button; until then it only shows where it will be.
-                else IconButton(onClick = {}, enabled = enabled) { Icon(Icons.Outlined.PushPin, stringResource(R.string.shortcut_add), Modifier.size(20.dp)) }
+                // Pin button (spec section 7): filled while a shortcut. Not disabled at the cap: a tap says "Shortcuts full".
+                else if (node.action != null) {
+                    val pinned = node.id in pins
+                    val full = !pinned && !Shortcuts.canAdd(pins, node.id)
+                    IconButton(onClick = { onPin(node) }) {
+                        Icon(if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                            stringResource(when { pinned -> R.string.shortcut_remove; full -> R.string.shortcut_full; else -> R.string.shortcut_add }),
+                            Modifier.size(20.dp), tint = if (pinned) MaterialTheme.colorScheme.primary else LocalContentColor.current.copy(alpha = if (full) 0.38f else 1f))
+                    }
+                }
             }
         }
     }

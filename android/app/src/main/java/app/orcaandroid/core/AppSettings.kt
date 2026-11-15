@@ -199,6 +199,11 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("edge_menu_left", false)
         set(value) = prefs.edit().putBoolean("edge_menu_left", value).apply()
 
+    /** The edge menu's shortcuts: stable menu node ids joined with "," (docs/design/EDGE-MENU.md section 7). */
+    var shortcuts: String
+        get() = prefs.getString("menu_shortcuts", "") ?: ""
+        set(value) = prefs.edit().putString("menu_shortcuts", value).apply()
+
     /** The first-run "print in 3 taps" strip on Prepare was closed (or the first print was sent). */
     var coachDismissed: Boolean
         get() = prefs.getBoolean("coach_dismissed", false)

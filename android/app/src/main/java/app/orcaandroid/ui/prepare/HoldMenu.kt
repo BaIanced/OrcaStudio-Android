@@ -154,6 +154,8 @@ internal fun HoldMenu(state: UiState, vm: AppViewModel, view: PlateView?) {
                 AnimatedContent(targetState = valid, transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) }, label = "hold level") { path ->
                     MenuLevel(state, view, nav, path, menuLevel(state, path, top.rows).second, divider = if (path.isEmpty()) top.group else 0,
                         onActivate = ::activate, onSlider = { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) },
+                        // The menu is a popup window over the snackbar: closing it leaves the Undo reachable.
+                        pins = state.chrome.shortcuts, onPin = { vm.toggleShortcut(it.id); vm.scene.closeContextMenu() },
                         modifier = Modifier.fillMaxWidth())
                 }
             }

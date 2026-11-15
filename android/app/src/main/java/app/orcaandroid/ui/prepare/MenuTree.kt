@@ -159,6 +159,16 @@ fun holdMenuTop(state: UiState): HoldTop {
 /** Looks a stored shortcut id up; unknown ids give null (renamed or removed). */
 fun findMenuNode(id: String): MenuNode? = ALL_NODES[id]
 
+/** The top-level node down to the node [id] (null for an unknown id): what must be shown for the node to be reachable. */
+fun menuChain(id: String): List<MenuNode>? {
+    fun walk(n: MenuNode, above: List<MenuNode>): List<MenuNode>? {
+        val here = above + n
+        if (n.id == id) return here
+        return n.children.firstNotNullOfOrNull { walk(it, here) }
+    }
+    return MENU_TREE.firstNotNullOfOrNull { walk(it, emptyList()) }
+}
+
 private val ALL_NODES: Map<String, MenuNode> by lazy {
     fun walk(n: MenuNode): List<MenuNode> = listOf(n) + n.children.flatMap(::walk)
     MENU_TREE.flatMap(::walk).associateBy { it.id }

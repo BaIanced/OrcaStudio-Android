@@ -190,7 +190,8 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                     label = "edge level",
                 ) { path ->
                     MenuLevel(state, view, m, path, menuLevel(state, path).second, divider = 0, onActivate = ::activate,
-                        onSlider = { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) }, modifier = Modifier.fillMaxSize())
+                        onSlider = { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) },
+                        pins = state.chrome.shortcuts, onPin = { vm.toggleShortcut(it.id) }, modifier = Modifier.fillMaxSize())
                 }
             }
         }

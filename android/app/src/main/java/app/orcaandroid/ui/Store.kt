@@ -7,6 +7,7 @@ import app.orcaandroid.R
 import app.orcaandroid.container
 import app.orcaandroid.core.PrintHistory
 import app.orcaandroid.core.Scene
+import app.orcaandroid.ui.prepare.Shortcuts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -76,6 +77,7 @@ class Store(val app: Application, val scope: CoroutineScope) {
                 focusRoom = settings.focusRoom,
                 edgeMenu = settings.edgeMenu,
                 edgeMenuLeft = settings.edgeMenuLeft,
+                shortcuts = Shortcuts.parse(settings.shortcuts),
                 coachDismissed = settings.coachDismissed,
                 interfaceSize = settings.interfaceSize,
                 showPlates = settings.showPlates,
