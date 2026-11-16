@@ -4549,3 +4549,6 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 
 ## 2026-11-15 T-060 pin field spec (source-checked, nothing built)
 - `docs/design/PINS.md`: field `W = union of dragged pins' (1 - d²/r²)² times (1 - phi) of every held pin, hold radius clipped to the distance`, world mm, axis lock at 8 degrees (release 12), local refine `max(r/12, 0.4 mm)` cap +200k, live to 150k faces, 60k proxy above, session undo per drag (one plate step after Done), self-intersection snackbar, engine methods `pin*`, shader wash from uniforms, worked numbers (script-checked). Tasks T-061..T-064 in MASTER-PLAN.
+
+## 2026-11-16 T-070 16 KB page-size check (device-checked: CI run 43827283006)
+- `android/scripts/check_page_align.py` + non-blocking CI step (commit 4a07e8a). All 4 native libs in the APK have PT_LOAD align 16384; `ndkVersion` pinned to 28.2.13676358. Play requirement from 2027-02-01 is met for the shipped libs.
