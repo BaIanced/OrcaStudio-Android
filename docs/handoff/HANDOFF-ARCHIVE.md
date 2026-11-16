@@ -4543,3 +4543,9 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 
 ## 2026-11-15 T-084 brush strip (device-checked: debug build on the WSA VD)
 - 05d6e94: with `edge_menu` on, Reshape shows a brush strip (swipe = brush, vertical = size with a ring, fade after lift, TalkBack actions) + vertical size slider + Reshape hold menu off the part. All done-when items device-checked; setting off unchanged. Details + open points: MASTER-PLAN T-084 tick.
+
+## 2026-11-15 T-087 edge handle (device-checked: debug build on the WSA VD)
+- d91d55c: the handle is `primary` with an inward chevron, not dimmed by the overlay alpha (the old `surfaceContainerHighest` was the 3D view's own background); tab 20 x 96 dp, touch 48 x 112 dp (`ViewDefaults.edgeHandleTouch`, 200 dp cap). Settings `edge_handle_width` 12..40, `edge_handle_height` 48..184, `edge_handle_alpha` 0.3..1 under the Edge menu switch (More > Experimental) and in the design panel's Layout tab; one-time hint (`edge_hint_seen`). Compile + 394 tests + smoke 8/8 off and on; bounds, sliders, hint, light / dark crops device-checked; setting off layout dump diff 0. Untested: design panel rows on a device, wide layout dock gap (now 8 dp from the touch box), left edge with the hint, RTL. Open: what "when nested" meant (ANSWERS 40).
+
+## 2026-11-15 T-060 pin field spec (source-checked, nothing built)
+- `docs/design/PINS.md`: field `W = union of dragged pins' (1 - d²/r²)² times (1 - phi) of every held pin, hold radius clipped to the distance`, world mm, axis lock at 8 degrees (release 12), local refine `max(r/12, 0.4 mm)` cap +200k, live to 150k faces, 60k proxy above, session undo per drag (one plate step after Done), self-intersection snackbar, engine methods `pin*`, shader wash from uniforms, worked numbers (script-checked). Tasks T-061..T-064 in MASTER-PLAN.

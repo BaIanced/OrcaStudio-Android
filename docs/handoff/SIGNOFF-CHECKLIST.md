@@ -16,6 +16,7 @@ Details: grep HANDOFF-ARCHIVE.md. Items 1-5 are the modeling gate (about 15 min)
 - [ ] S-25 Shortcuts: pin a tool (pin button on a row), it shows in the dock, Undo snackbar, still there after a restart; long press the dock = edit mode.
 - [ ] S-26 Sculpt brush strip: swipe left/right = brush, up/down = size (ring), fades after lift; feel of the step size, direction, buzz.
 - [ ] S-27 Reshape hold menu: long press off the part (Brush / Mirror / Size / View / Undo / Done).
+- [ ] S-28 Edge handle (r567): orange tab with a chevron, first-use hint; width / height / opacity sliders under More > Experimental > Edge menu and in the design panel Layout tab.
 
 ## Core feel
 - [ ] S-14 Two-finger gestures (pan/zoom/pinch).
