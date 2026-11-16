@@ -62,6 +62,17 @@ object ViewDefaults {
     const val TOOL_BUTTON_DP = 48f
     const val TOOL_BUTTON_MIN_DP = 40f
 
+    /** The edge menu's handle (docs/design/EDGE-MENU.md section 5): the visible tab's width and height in dp, and its opacity. */
+    const val EDGE_HANDLE_WIDTH = 20f
+    val EDGE_HANDLE_WIDTHS = 12f..40f
+    const val EDGE_HANDLE_HEIGHT = 96f
+    val EDGE_HANDLE_HEIGHTS = 48f..184f
+    const val EDGE_HANDLE_ALPHA = 1f
+    val EDGE_HANDLE_ALPHAS = 0.3f..1f
+
+    /** The handle's touch box (dp) around a [w] x [h] tab: at least 48 dp wide, 16 dp taller, at most 200 dp (Android's gesture exclusion cap per edge). */
+    fun edgeHandleTouch(w: Float, h: Float): Pair<Float, Float> = maxOf(48f, w + 16f) to minOf(200f, h + 16f)
+
     const val PINCH_SPEED = 0.6f
     val PINCH_SPEEDS = 0.2f..1f
     const val WHEEL_SPEED = 1f

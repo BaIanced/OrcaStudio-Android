@@ -287,9 +287,11 @@ fun PrepareOverlay(state: UiState, vm: AppViewModel, view: PlateView?, wide: Boo
             }
             ToolPanel(state, vm)
         }
-        // Wide: a column beside the handle, above the Slice button (and above the brush strip in Reshape).
+        // Wide: a column beside the handle (8 dp clear of its touch box, which sits outside this 8 dp inset), above the Slice
+        // button (and above the brush strip in Reshape).
         if (edge && wide && !editing) ShortcutDock(state, vm, view, vertical = true,
-            Modifier.align(Alignment.BottomEnd).padding(bottom = if (sculpt != null) 136.dp else 72.dp, end = if (state.chrome.edgeMenuLeft) 0.dp else 40.dp))
+            Modifier.align(Alignment.BottomEnd).padding(bottom = if (sculpt != null) 136.dp else 72.dp, end = if (state.chrome.edgeMenuLeft) 0.dp
+                else ViewDefaults.edgeHandleTouch(state.chrome.edgeHandleWidth, state.chrome.edgeHandleHeight).first.dp))
         if (ViewDefaults.SLICE_FLOATING) FloatingSlice(state, vm, containerSize)
         else if (!stripWithSlice && !sliceOnGrip) SliceButton(state, vm, Modifier.align(Alignment.BottomEnd))
         // Setup problems (first case: a filament slot of the wrong type): tap opens the panel at the offending setting.

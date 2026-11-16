@@ -520,6 +520,25 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.update { it.copy(chrome = it.chrome.copy(edgeMenuLeft = on)) }
     }
 
+    /** The edge handle's tab size in dp (whole dp, clamped to the ranges in ViewDefaults). */
+    fun setEdgeHandleSize(width: Float, height: Float) {
+        store.settings.edgeHandleWidth = kotlin.math.round(width)
+        store.settings.edgeHandleHeight = kotlin.math.round(height)
+        store.update { it.copy(chrome = it.chrome.copy(edgeHandleWidth = store.settings.edgeHandleWidth, edgeHandleHeight = store.settings.edgeHandleHeight)) }
+    }
+
+    fun setEdgeHandleAlpha(v: Float) {
+        store.settings.edgeHandleAlpha = v
+        store.update { it.copy(chrome = it.chrome.copy(edgeHandleAlpha = store.settings.edgeHandleAlpha)) }
+    }
+
+    /** The one-time hint beside the edge handle goes for good (closed, or the panel opened). */
+    fun dismissEdgeHint() {
+        if (store.value.chrome.edgeHintSeen) return
+        store.settings.edgeHintSeen = true
+        store.update { it.copy(chrome = it.chrome.copy(edgeHintSeen = true)) }
+    }
+
     private fun saveShortcuts(ids: List<String>) {
         store.settings.shortcuts = app.orcaandroid.ui.prepare.Shortcuts.join(ids)
         store.update { it.copy(chrome = it.chrome.copy(shortcuts = ids)) }

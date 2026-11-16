@@ -1381,6 +1381,10 @@
     <string name="edge_menu_title">Edge menu</string>
     <string name="edge_menu_text">Tools in a menu at the screen edge and under a long press, instead of the button column.</string>
     <string name="edge_menu_left">Edge menu on the left</string>
+    <string name="edge_handle_width">Edge handle width: %d dp</string>
+    <string name="edge_handle_height">Edge handle height: %d dp</string>
+    <string name="edge_handle_alpha">Edge handle opacity: %d %%</string>
+    <string name="edge_hint">Tap or swipe to open tools</string>
     <string name="shortcut_add">Add to shortcuts</string>
     <string name="shortcut_remove">Remove from shortcuts</string>
     <string name="shortcut_added">Added to shortcuts</string>

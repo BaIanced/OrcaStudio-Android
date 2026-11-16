@@ -143,7 +143,11 @@ fun ThemeDesignPanel(state: UiState, vm: AppViewModel, floating: Boolean, onFloa
                                 Text(stringResource(R.string.design_reset_all))
                             }
                         }
-            } else app.orcaandroid.ui.settings.LayoutPrefs(state, vm)
+            } else {
+                app.orcaandroid.ui.settings.LayoutPrefs(state, vm)
+                // The edge handle's look next to the other layout values (user 2026-11-15: "in settings or the design tab").
+                if (state.chrome.edgeMenu) app.orcaandroid.ui.settings.EdgeHandlePrefs(state, vm)
+            }
         }
     }
     val header: @Composable (Modifier) -> Unit = { mod ->

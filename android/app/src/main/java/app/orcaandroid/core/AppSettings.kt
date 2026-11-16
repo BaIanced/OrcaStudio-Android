@@ -199,6 +199,22 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("edge_menu_left", false)
         set(value) = prefs.edit().putBoolean("edge_menu_left", value).apply()
 
+    /** The edge menu's handle: tab width and height in dp, opacity (More > Experimental and the design panel's Layout tab). */
+    var edgeHandleWidth: Float
+        get() = prefs.getFloat("edge_handle_width", ViewDefaults.EDGE_HANDLE_WIDTH).coerceIn(ViewDefaults.EDGE_HANDLE_WIDTHS)
+        set(value) = prefs.edit().putFloat("edge_handle_width", value.coerceIn(ViewDefaults.EDGE_HANDLE_WIDTHS)).apply()
+    var edgeHandleHeight: Float
+        get() = prefs.getFloat("edge_handle_height", ViewDefaults.EDGE_HANDLE_HEIGHT).coerceIn(ViewDefaults.EDGE_HANDLE_HEIGHTS)
+        set(value) = prefs.edit().putFloat("edge_handle_height", value.coerceIn(ViewDefaults.EDGE_HANDLE_HEIGHTS)).apply()
+    var edgeHandleAlpha: Float
+        get() = prefs.getFloat("edge_handle_alpha", ViewDefaults.EDGE_HANDLE_ALPHA).coerceIn(ViewDefaults.EDGE_HANDLE_ALPHAS)
+        set(value) = prefs.edit().putFloat("edge_handle_alpha", value.coerceIn(ViewDefaults.EDGE_HANDLE_ALPHAS)).apply()
+
+    /** The one-time hint beside the edge handle was closed (or the panel was opened once). */
+    var edgeHintSeen: Boolean
+        get() = prefs.getBoolean("edge_hint_seen", false)
+        set(value) = prefs.edit().putBoolean("edge_hint_seen", value).apply()
+
     /** The edge menu's shortcuts: stable menu node ids joined with "," (docs/design/EDGE-MENU.md section 7). */
     var shortcuts: String
         get() = prefs.getString("menu_shortcuts", "") ?: ""

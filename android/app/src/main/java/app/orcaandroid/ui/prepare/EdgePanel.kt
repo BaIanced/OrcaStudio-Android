@@ -19,12 +19,18 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -35,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -55,6 +62,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orcaandroid.R
+import app.orcaandroid.core.ViewDefaults
 import app.orcaandroid.render.PlateView
 import app.orcaandroid.ui.AppViewModel
 import app.orcaandroid.ui.UiState
@@ -116,17 +124,22 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
     SlideAutoScroll(m) { slideTo(it) }
     BackHandler(enabled = m.open) { m.close() }
 
+    // The one-time hint goes once the panel has been opened.
+    LaunchedEffect(m.open) { if (m.open) vm.dismissEdgeHint() }
+
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val alpha = LocalOverlayAlpha.current
         // Out of the way of a dialog, the hold menu and the Reshape size drag (spec section 5); kept while a slide runs (it owns the finger).
         val hidden = state.workspace.addDialog != null || state.workspace.contextMenu != null || BrushSizeDrag.active
+        // Centred at 45 % of the plate area's height.
+        val at = BiasAlignment(if (left) -1f else 1f, -0.1f)
+        val c = state.chrome
+        val (touchW, touchH) = ViewDefaults.edgeHandleTouch(c.edgeHandleWidth, c.edgeHandleHeight)
         if (!hidden || m.sliding) {
             val label = stringResource(R.string.edge_menu_title)
             Box(
                 Modifier
-                    // Centred at 45 % of the plate area's height.
-                    .align(BiasAlignment(if (left) -1f else 1f, -0.1f))
-                    .size(32.dp, 96.dp)
+                    .align(at)
+                    .size(touchW.dp, touchH.dp)
                     // Android's back gesture takes both side edges; this strip (under its 200 dp cap) stays ours.
                     .systemGestureExclusion()
                     .onGloballyPositioned { m.handle = it }
@@ -145,12 +158,26 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                     },
                 contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
+                // The accent (not the overlay alpha): the old surface colour was the 3D view's own background (user 2026-11-15).
                 val tab = if (left) RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp) else RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
-                Box(Modifier.size(12.dp, 64.dp).clip(tab).background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = alpha)),
+                Box(Modifier.size(c.edgeHandleWidth.dp, c.edgeHandleHeight.dp).alpha(c.edgeHandleAlpha).clip(tab).background(MaterialTheme.colorScheme.primary),
                     contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(3.dp, 28.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)))
+                    // Points into the plate, the way the panel comes out.
+                    Icon(if (left) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft, null,
+                        Modifier.size(minOf(c.edgeHandleWidth, 24f).dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
+        }
+        // First use: what the handle is for, beside it until the panel is opened or the hint is tapped.
+        if (!c.edgeHintSeen && !hidden && !m.open) Surface(
+            onClick = vm::dismissEdgeHint,
+            modifier = Modifier.align(at).then(if (left) Modifier.padding(start = touchW.dp) else Modifier.padding(end = touchW.dp)).widthIn(max = 200.dp),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.primary,
+            shadowElevation = 2.dp,
+        ) {
+            Text(stringResource(R.string.edge_hint), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimary)
         }
         if (m.open) {
             // Tap outside closes (and goes nowhere else).

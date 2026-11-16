@@ -87,9 +87,17 @@ Check (JVM test): for each of the 4 selection states the tree reaches every acti
 reach today (a list in the test), so turning the setting on loses nothing.
 
 ## 5. Edge panel
-- Handle: a 12 x 64 dp rounded tab on the right edge (left with the setting "Edge menu on the left"), centred at 45 %
-  of the plate area height, touch area 32 x 96 dp, `systemGestureExclusion` on the touch area (inside the 200 dp
-  cap). Overlay alpha follows `LocalOverlayAlpha`. Hidden while a dialog, the Reshape size drag or the hold menu is up.
+- Handle (T-087, after the phone trial "very hard to see"): a rounded tab on the right edge (left with the setting "Edge
+  menu on the left"), centred at 45 % of the plate area height, in the accent colour (`primary`, chevron in `onPrimary`
+  pointing into the plate); the old `surfaceContainerHighest` tab was the 3D view's own background colour. Not dimmed by
+  `LocalOverlayAlpha`. Tab 20 x 96 dp by default; touch area = tab + 16 dp in height, at least 48 dp wide, at most
+  200 dp tall, `systemGestureExclusion` on it (Android's cap). Hidden while a dialog, the Reshape size drag or the hold
+  menu is up.
+- Handle settings (user: "adjustable in settings or the design tab"; shown while the edge menu is on, under its switch in
+  More > Experimental and in the design panel's Layout tab): width 12..40 dp (`edge_handle_width`, default 20), height
+  48..184 dp (`edge_handle_height`, default 96), opacity 30..100 % (`edge_handle_alpha`, default 100 %).
+- First use: a bubble beside the handle, "Tap or swipe to open tools", until the panel is opened once or the bubble is
+  tapped (`edge_hint_seen`).
 - Two ways in: tap the handle = panel opens and stays; drag out from the handle = slide-through (the finger's row
   highlights; lift on a leaf runs it and closes; lift on a branch opens it and the panel stays; lift outside = close).
 - Panel: 232 dp wide (max 70 % of the plate width), full plate height minus the top bar, `surfaceContainerHigh`,

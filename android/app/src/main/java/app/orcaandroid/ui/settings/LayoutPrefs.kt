@@ -66,11 +66,25 @@ internal fun LayoutPrefs(state: UiState, vm: AppViewModel) {
     }
 }
 
-/** A plain slider whose label shows the value in %; with [onRelease] the value is applied when the finger lifts (sizes would move under it). */
+/** The edge menu's handle (docs/design/EDGE-MENU.md section 5): tab width, height and opacity. Shown while the edge menu is on. */
 @Composable
-private fun PercentSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onRelease: Boolean, onSet: (Float) -> Unit) {
+internal fun EdgeHandlePrefs(state: UiState, vm: AppViewModel) {
+    val c = state.chrome
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PercentSlider(R.string.edge_handle_width, c.edgeHandleWidth, ViewDefaults.EDGE_HANDLE_WIDTHS, false, { vm.setEdgeHandleSize(it, c.edgeHandleHeight) }, scale = 1)
+        PercentSlider(R.string.edge_handle_height, c.edgeHandleHeight, ViewDefaults.EDGE_HANDLE_HEIGHTS, false, { vm.setEdgeHandleSize(c.edgeHandleWidth, it) }, scale = 1)
+        PercentSlider(R.string.edge_handle_alpha, c.edgeHandleAlpha, ViewDefaults.EDGE_HANDLE_ALPHAS, false, vm::setEdgeHandleAlpha)
+    }
+}
+
+/**
+ * A plain slider whose label shows the value in % (times [scale]: 1 shows it as is, e.g. dp); with [onRelease] the value is
+ * applied when the finger lifts (sizes would move under it).
+ */
+@Composable
+private fun PercentSlider(label: Int, value: Float, range: ClosedFloatingPointRange<Float>, onRelease: Boolean, onSet: (Float) -> Unit, scale: Int = 100) {
     var live by remember(value) { mutableFloatStateOf(value) }
-    Text(stringResource(label, (live * 100).roundToInt()), style = MaterialTheme.typography.bodyMedium)
+    Text(stringResource(label, (live * scale).roundToInt()), style = MaterialTheme.typography.bodyMedium)
     if (onRelease) Slider(live, { live = it }, valueRange = range, onValueChangeFinished = { onSet((live * 20).roundToInt() / 20f) })
     else Slider(value, onSet, valueRange = range)
 }

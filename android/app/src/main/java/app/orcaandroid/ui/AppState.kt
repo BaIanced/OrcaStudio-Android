@@ -344,6 +344,11 @@ data class ChromeState(
     /** Experimental setting "Edge menu" (docs/design/EDGE-MENU.md): no tool column, an edge panel instead; and its side. */
     val edgeMenu: Boolean = false,
     val edgeMenuLeft: Boolean = false,
+    /** The edge handle's tab size in dp and opacity, see [app.orcaandroid.core.ViewDefaults]; the one-time hint beside it was seen. */
+    val edgeHandleWidth: Float = app.orcaandroid.core.ViewDefaults.EDGE_HANDLE_WIDTH,
+    val edgeHandleHeight: Float = app.orcaandroid.core.ViewDefaults.EDGE_HANDLE_HEIGHT,
+    val edgeHandleAlpha: Float = app.orcaandroid.core.ViewDefaults.EDGE_HANDLE_ALPHA,
+    val edgeHintSeen: Boolean = true,
     /** The edge menu's shortcuts: stable menu node ids in dock order (section 7; unknown ids are skipped when shown). */
     val shortcuts: List<String> = emptyList(),
     val coachDismissed: Boolean = true,
