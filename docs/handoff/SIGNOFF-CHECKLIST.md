@@ -10,6 +10,13 @@ Details: grep HANDOFF-ARCHIVE.md. Items 1-5 are the modeling gate (about 15 min)
 - [ ] S-06 Snapping toggle/hotkey + smart guides + Center/Align.
 - [ ] S-17 OrcaMesh edit M1-M4.
 
+## Edge menu (Batch 8, run 43801779733; first turn on More > Experimental > Edge menu)
+- [ ] S-23 Edge panel: pull it out from the edge handle, open submenus, scrub up/down; "Edge menu on the left" switch.
+- [ ] S-24 Hold menu: long press empty space, slide to an entry, lift runs it; same tree as the panel.
+- [ ] S-25 Shortcuts: pin a tool (pin button on a row), it shows in the dock, Undo snackbar, still there after a restart; long press the dock = edit mode.
+- [ ] S-26 Sculpt brush strip: swipe left/right = brush, up/down = size (ring), fades after lift; feel of the step size, direction, buzz.
+- [ ] S-27 Reshape hold menu: long press off the part (Brush / Mirror / Size / View / Undo / Done).
+
 ## Core feel
 - [ ] S-14 Two-finger gestures (pan/zoom/pinch).
 - [ ] S-07 Measure: snap highlight + loupe, 2nd-finger freeze, axis lock, mouse hover (steer verified r444; S Pen goes to the pen session).
