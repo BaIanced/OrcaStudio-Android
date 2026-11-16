@@ -159,13 +159,14 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                     },
                 contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
-                // The accent (not the overlay alpha): the old surface colour was the 3D view's own background (user 2026-11-15).
+                // Neutral grey, not the accent (user 2026-11-15: not orange; the old surface colour was the 3D view's own background)
+                // was: The accent (not the overlay alpha): the old surface colour was the 3D view's own background (user 2026-11-15).
                 val tab = if (left) RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp) else RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
-                Box(Modifier.size(c.edgeHandleWidth.dp, c.edgeHandleHeight.dp).alpha(c.edgeHandleAlpha).clip(tab).background(MaterialTheme.colorScheme.primary),
+                Box(Modifier.size(c.edgeHandleWidth.dp, c.edgeHandleHeight.dp).alpha(c.edgeHandleAlpha).clip(tab).background(MaterialTheme.colorScheme.onSurfaceVariant),
                     contentAlignment = Alignment.Center) {
                     // Points into the plate, the way the panel comes out.
                     Icon(if (left) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.AutoMirrored.Filled.KeyboardArrowLeft, null,
-                        Modifier.size(minOf(c.edgeHandleWidth, 24f).dp), tint = MaterialTheme.colorScheme.onPrimary)
+                        Modifier.size(minOf(c.edgeHandleWidth, 24f).dp), tint = MaterialTheme.colorScheme.surface)
                 }
             }
         }
@@ -174,11 +175,11 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
             onClick = vm::dismissEdgeHint,
             modifier = Modifier.align(at).then(if (left) Modifier.padding(start = touchW.dp) else Modifier.padding(end = touchW.dp)).widthIn(max = 200.dp),
             shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.inverseSurface,
             shadowElevation = 2.dp,
         ) {
             Text(stringResource(R.string.edge_hint), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimary)
+                color = MaterialTheme.colorScheme.inverseOnSurface)
         }
         if (m.open) {
             // No full-screen scrim: it swallowed every plate gesture while the panel was open. Back, a swipe toward the edge or the handle closes it.
@@ -203,7 +204,7 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                         }
                     },
                 shape = if (left) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp) else RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = state.chrome.overlayAlpha),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 shadowElevation = 6.dp,
             ) {
                 AnimatedContent(
