@@ -4552,3 +4552,6 @@ Diff 04be473..7033acb read in full (T-040..T-043). Two T-041 findings fixed in t
 
 ## 2026-11-16 T-070 16 KB page-size check (device-checked: CI run 43827283006)
 - `android/scripts/check_page_align.py` + non-blocking CI step (commit 4a07e8a). All 4 native libs in the APK have PT_LOAD align 16384; `ndkVersion` pinned to 28.2.13676358. Play requirement from 2027-02-01 is met for the shipped libs.
+
+## 2026-11-16 T-071 App Bundle job, T-072 store drafts
+- T-071 (device-checked: CI run 43829529200, `bundle=true`): `.aab` artifact r572, 62 MB, test-signed (not Play-uploadable until UA-2 upload key). T-072 (source-checked, drafts): `docs/play/*.md`, 34 CHECK marks to resolve before any listing.
