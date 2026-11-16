@@ -274,7 +274,7 @@ internal fun MenuLevel(state: UiState, view: PlateView?, nav: MenuNav, path: Lis
                 if (checked == true) Icon(Icons.Default.Check, null, Modifier.padding(horizontal = 4.dp))
                 if (!node.isLeaf) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.padding(end = 8.dp))
                 // Pin button (spec section 7): filled while a shortcut. Not disabled at the cap: a tap says "Shortcuts full".
-                else if (node.action != null) {
+                else if (PINS_ENABLED && node.action != null) {
                     val pinned = node.id in pins
                     val full = !pinned && !Shortcuts.canAdd(pins, node.id)
                     IconButton(onClick = { onPin(node) }) {

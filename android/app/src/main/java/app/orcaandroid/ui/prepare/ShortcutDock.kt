@@ -55,6 +55,9 @@ import app.orcaandroid.ui.Tool
 import app.orcaandroid.ui.UiState
 import kotlin.math.roundToInt
 
+/** Pinned shortcuts are parked (user 2026-11-16: more anxiety than use, for now): no pin buttons, no dock. The code and stored pins stay. */
+internal const val PINS_ENABLED = false
+
 /**
  * The shortcut dock (docs/design/EDGE-MENU.md section 7), with the setting `edgeMenu` on: a row (a column when [vertical]) of
  * 48 dp round buttons for the menu nodes pinned from the edge panel or the hold menu ([Shortcuts]). A tap runs the node through
@@ -65,6 +68,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ShortcutDock(state: UiState, vm: AppViewModel, view: PlateView?, vertical: Boolean, modifier: Modifier = Modifier) {
+    if (!PINS_ENABLED) return
     val reshaping = state.workspace.tool is Tool.Sculpt
     if (state.workspace.focus != null && !reshaping) return
     val all = state.chrome.shortcuts

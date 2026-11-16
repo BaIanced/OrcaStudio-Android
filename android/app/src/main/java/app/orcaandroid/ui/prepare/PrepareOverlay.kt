@@ -467,7 +467,8 @@ private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButto
     }) {
         UpdatesChip(state, vm)
         if (viewButtons && !onHandle) views()
-        FileButton(state, vm)
+        // No File menu while an object is being edited (room, Reshape, mesh edit): user 2026-11-16.
+        if (state.workspace.focus == null && state.workspace.tool !is Tool.Sculpt && state.workspace.tool !is Tool.MeshEdit) FileButton(state, vm)
     }
 }
 
