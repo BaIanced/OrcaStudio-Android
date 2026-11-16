@@ -452,7 +452,7 @@ private fun ViewContextMenu(state: UiState, vm: AppViewModel, view: PlateView?) 
 private fun TopBar(state: UiState, vm: AppViewModel, view: PlateView?, viewButtons: Boolean, onHandle: Boolean) {
     val alpha = LocalOverlayAlpha.current
     val bar = MaterialTheme.colorScheme.surface.copy(alpha = alpha)
-    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false, undoRedo = state.room == null) } } }
+    val views: @Composable () -> Unit = { Surface(shape = RoundedCornerShape(20.dp), color = bar) { Row { ViewButtons(state, vm, view, rail = false, undoRedo = state.room == null, showView = !state.chrome.edgeMenu) } } }
     // In fullscreen portrait the bar can sit beside the camera hole (CutoutRow). With the switcher on the grip the
     // view buttons take the free start, left of the hole, and File stays right of it (together they didn't fit past it).
     CutoutRow(minStart = 96.dp, start = {
@@ -501,7 +501,7 @@ private fun PlateChips(state: UiState, vm: AppViewModel, view: PlateView?) {
 
 /** Undo, redo ([undoRedo]) and the view menu: tool-column buttons ([rail]) or plain icons in the top bar. */
 @Composable
-internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean, undoRedo: Boolean = true) {
+internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rail: Boolean, undoRedo: Boolean = true, showView: Boolean = true) {
     var viewMenu by remember { mutableStateOf(false) }
     val button: @Composable (ImageVector, String, Boolean, () -> Unit) -> Unit = { icon, label, enabled, onClick ->
         if (rail) ToolButton(icon, label, enabled = enabled, onClick = onClick)
@@ -512,7 +512,8 @@ internal fun ViewButtons(state: UiState, vm: AppViewModel, view: PlateView?, rai
         button(Icons.AutoMirrored.Filled.Undo, stringResource(R.string.undo), state.workspace.scene.canUndo, vm.scene::undo)
         button(Icons.AutoMirrored.Filled.Redo, stringResource(R.string.redo), state.workspace.scene.canRedo, vm.scene::redo)
     }
-    Box {
+    // With the edge menu on, View lives in the menu tree (edge panel and hold menu): no third entry here.
+    if (showView) Box {
         button(Icons.Default.Videocam, stringResource(R.string.view), true) { viewMenu = true }
         DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
             listOf(R.string.view_iso to 0, R.string.view_top to 1, R.string.view_front to 2, R.string.view_left to 3, R.string.view_right to 4).forEach { (label, id) ->

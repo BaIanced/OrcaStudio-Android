@@ -13,7 +13,8 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -180,8 +181,7 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                 color = MaterialTheme.colorScheme.onPrimary)
         }
         if (m.open) {
-            // Tap outside closes (and goes nowhere else).
-            Box(Modifier.fillMaxSize().pointerInput(m) { detectTapGestures { m.close() } })
+            // No full-screen scrim: it swallowed every plate gesture while the panel was open. Back, a swipe toward the edge or the handle closes it.
             var dragX by remember { mutableFloatStateOf(0f) }
             val width = minOf(232.dp, maxWidth * 0.7f)
             Surface(
@@ -189,7 +189,7 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                     .align(if (left) Alignment.TopStart else Alignment.TopEnd)
                     .padding(top = top)
                     .width(width)
-                    .fillMaxHeight()
+                    .heightIn(max = maxHeight - top - 8.dp)
                     .offset { IntOffset(dragX.roundToInt(), 0) }
                     .onGloballyPositioned { m.panel = it.boundsInWindow() }
                     // Swiped back toward its edge: closes.
@@ -203,7 +203,7 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                         }
                     },
                 shape = if (left) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp) else RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = state.chrome.overlayAlpha),
                 shadowElevation = 6.dp,
             ) {
                 AnimatedContent(
@@ -218,7 +218,7 @@ internal fun EdgePanel(state: UiState, vm: AppViewModel, view: PlateView?, top: 
                 ) { path ->
                     MenuLevel(state, view, m, path, menuLevel(state, path).second, divider = 0, onActivate = ::activate,
                         onSlider = { node, v -> node.slider?.set?.invoke(MenuEnv(vm, cur, curView), v) },
-                        pins = state.chrome.shortcuts, onPin = { vm.toggleShortcut(it.id) }, modifier = Modifier.fillMaxSize())
+                        pins = state.chrome.shortcuts, onPin = { vm.toggleShortcut(it.id) }, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

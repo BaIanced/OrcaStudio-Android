@@ -148,7 +148,7 @@ internal fun HoldMenu(state: UiState, vm: AppViewModel, view: PlateView?) {
             Surface(
                 Modifier.width(width).heightIn(max = maxHeight).onGloballyPositioned { nav.panel = nav.place(it) },
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = state.chrome.overlayAlpha),
                 shadowElevation = 6.dp,
             ) {
                 AnimatedContent(targetState = valid, transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) }, label = "hold level") { path ->

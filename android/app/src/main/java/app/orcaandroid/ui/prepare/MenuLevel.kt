@@ -270,7 +270,7 @@ internal fun MenuLevel(state: UiState, view: PlateView?, nav: MenuNav, path: Lis
                 hoverOpen = if (!node.isLeaf) { { onActivate(node.id) } } else null, checked = checked) {
                 Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) { node.icon?.let { Icon(it(), null) } }
                 Spacer(Modifier.width(12.dp))
-                Text(node.text ?: stringResource(node.label), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge, maxLines = 2)
+                Text(node.text ?: stringResource(node.label), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                 if (checked == true) Icon(Icons.Default.Check, null, Modifier.padding(horizontal = 4.dp))
                 if (!node.isLeaf) Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.padding(end = 8.dp))
                 // Pin button (spec section 7): filled while a shortcut. Not disabled at the cap: a tap says "Shortcuts full".
@@ -288,7 +288,7 @@ internal fun MenuLevel(state: UiState, view: PlateView?, nav: MenuNav, path: Lis
     }
 }
 
-/** A 48 dp row that registers its bounds for slide-through hit tests. */
+/** A 40 dp row that registers its bounds for slide-through hit tests. */
 @Composable
 private fun MenuRowFrame(nav: MenuNav, levelKey: String, key: String, highlighted: Boolean, enabled: Boolean, onClick: (() -> Unit)?,
                          hoverOpen: (() -> Unit)? = null, checked: Boolean? = null, content: @Composable () -> Unit) {
@@ -298,7 +298,7 @@ private fun MenuRowFrame(nav: MenuNav, levelKey: String, key: String, highlighte
     Row(
         Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp)
+            .heightIn(min = 40.dp)
             .onGloballyPositioned { nav.rows[id] = nav.place(it) }
             .background(if (highlighted) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
             .then(if (onClick != null) Modifier.clickable(enabled = enabled, onClick = onClick) else Modifier)
