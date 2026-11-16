@@ -328,6 +328,14 @@ jobs:
               --json size-report.json --baseline size-baseline.json; } >> "$GITHUB_STEP_SUMMARY"
           cp size-report.json dist/size-report.json
           mv size-report.json size-baseline.json
+      # 16 KB page-size check (P-04, Play requirement from 2027-02-01): PT_LOAD alignment of every lib/*/*.so.
+      # Non-blocking for now: warns and prints the table; add --strict to make it fail the build.
+      - name: 16 KB page-size check
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          { echo "## 16 KB page-size check"; echo; python3 android/scripts/check_page_align.py dist/*.apk; } \
+            | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Save size report
         uses: actions/cache/save@v6
         with:

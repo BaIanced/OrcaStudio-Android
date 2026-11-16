@@ -32,6 +32,9 @@ android {
         version = release(37) { minorApiLevel = 2 }
     }
 
+    // Same NDK as CI (NDK_VERSION in .github/workflows/android-apk.yml).
+    ndkVersion = "28.2.13676358"
+
     defaultConfig {
         // Own id so this build installs next to (and never collides with) cl1x's signed Orca-Android.
         applicationId = "io.github.baianced.orcastudio_android"
