@@ -20,6 +20,10 @@ on:
         description: Also upload the Android deps prefix as an artifact (for local native builds)
         type: boolean
         default: false
+      bundle:
+        description: Also build the Play App Bundle (.aab) and upload it as an artifact (no store upload)
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -356,6 +360,27 @@ jobs:
           path: ${{ env.BUILD_ROOT }}/gradle/app/outputs/mapping/release/mapping.txt
           retention-days: 90
           if-no-files-found: warn
+
+      # App Bundle (P-06), on request only. Artifact only: nothing is sent to a store. Play needs its own
+      # upload key (UA-2); with the optional release secrets this .aab is signed with the APK key, otherwise
+      # with the cached debug key, so it is a test bundle either way.
+      - name: Build App Bundle (on request)
+        if: inputs.bundle
+        working-directory: android
+        run: |
+          set -euo pipefail
+          ./gradlew --console=plain -q :app:bundleRelease
+          ls -l "$BUILD_ROOT"/gradle/app/outputs/bundle/release/*.aab
+
+      - name: Upload App Bundle (on request)
+        if: inputs.bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: OrcaStudio-Android-aab-r${{ github.run_number }}
+          path: ${{ env.BUILD_ROOT }}/gradle/app/outputs/bundle/release/*.aab
+          retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
 
       - name: Verify release signer
         if: github.ref == 'refs/heads/main'
